@@ -59,6 +59,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED_Pin GPIO_PIN_3
 #define LED_GPIO_Port GPIOE
+#define LM5116_EN_Pin GPIO_PIN_0
+#define LM5116_EN_GPIO_Port GPIOB
 #define BEEP_Pin GPIO_PIN_11
 #define BEEP_GPIO_Port GPIOD
 #define KEY1_Pin GPIO_PIN_12
@@ -69,6 +71,8 @@ void Error_Handler(void);
 #define KEY3_GPIO_Port GPIOD
 #define KEY4_Pin GPIO_PIN_15
 #define KEY4_GPIO_Port GPIOD
+#define KEY_EC_Pin GPIO_PIN_8
+#define KEY_EC_GPIO_Port GPIOC
 #define LCD_RST_Pin GPIO_PIN_0
 #define LCD_RST_GPIO_Port GPIOD
 #define LCD_DC_Pin GPIO_PIN_2

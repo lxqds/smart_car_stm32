@@ -25,6 +25,11 @@ smart_car_stm32/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_mdma.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_exti.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_cortex.h \
+  ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_adc.h \
+  ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_ll_adc.h \
+  ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_adc_ex.h \
+  ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dac.h \
+  ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_dac_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_flash_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_hsem.h \
@@ -36,8 +41,9 @@ smart_car_stm32/main.o: ..\Core\Src\main.c ..\Core\Inc\main.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_spi_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h \
+  ..\Core\Inc\adc.h ..\Core\Inc\dac.h ..\Core\Inc\dma.h \
   ..\Core\Inc\i2c.h ..\Core\Inc\memorymap.h ..\Core\Inc\spi.h \
   ..\Core\Inc\tim.h ..\Core\Inc\gpio.h ..\hardware\LCD\lcd_o.h \
   D:\APP\Keil_539\ARM\ARMCLANG\include\stdio.h \
   D:\APP\Keil_539\ARM\ARMCLANG\include\string.h ..\hardware\BEEP\tone.h \
-  ..\hardware\AT24C02\AT24C02.h
+  ..\hardware\AT24C02\AT24C02.h ..\hardware\NTC\ntc.h
