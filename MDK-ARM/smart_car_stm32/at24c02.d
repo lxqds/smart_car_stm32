@@ -42,4 +42,4 @@ smart_car_stm32/at24c02.o: ..\hardware\AT24C02\AT24C02.c \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_spi_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h \
-  ..\Core\Inc\i2c.h
+  D:\APP\Keil_539\ARM\ARMCLANG\include\stdbool.h ..\Core\Inc\i2c.h

@@ -41,6 +41,13 @@
 "smart_car_stm32\lcd_o.o"
 "smart_car_stm32\at24c02.o"
 "smart_car_stm32\ntc.o"
+"smart_car_stm32\encoder.o"
+"smart_car_stm32\motor.o"
+"smart_car_stm32\servo.o"
+"smart_car_stm32\pid.o"
+"smart_car_stm32\usb1.o"
+"smart_car_stm32\inspector.o"
+"smart_car_stm32\icar.o"
 --strict --scatter "smart_car_stm32\smart_car_stm32.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers

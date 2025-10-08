@@ -102,6 +102,12 @@ void power_grocess();
 void power_grocess2();
 uint8_t adc_dma_finish;
 
+
+//car
+uint16_t servo_duty;
+uint16_t motor_duty;
+
+uint16_t motor_count;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -177,6 +183,9 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM3_Init();
   MX_DAC1_Init();
+  MX_TIM1_Init();
+  MX_TIM2_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
 	HAL_TIM_Base_Start_IT(&htim13);
@@ -240,6 +249,12 @@ int main(void)
 	 HAL_DAC_Start(&hdac1,DAC_CHANNEL_2);//开启DAC
 	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_set_I/3.30f*4096);
 	 
+	 //Car
+	 HAL_TIM_PWM_Start(&htim5,TIM_CHANNEL_3);//舵机
+	 HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_2);//电机
+	 HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_1);//编码器
+	 HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_2);//编码器
+	 
 	//LCD_Clear(Black);
   /* USER CODE END 2 */
 
@@ -247,18 +262,27 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//		char text[30];
-//		sprintf(text,"OSC_MODE");
-//		LCD_ShowString(0,0,200,12,12,(uint8_t*)text);
-//		
-//		if(key!=0)
-//		{
-//			char text[30];
-//			sprintf(text,"key=%d",key);
-//			LCD_ShowString(0,24,200,12,12,(uint8_t*)text);
-//			tone(800,100);
-//			key = 0;
-//		}
+		if(key==31)
+		{
+			key=0;
+			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_0,GPIO_PIN_SET);
+		}
+		
+		motor_count = __HAL_TIM_GET_COUNTER(&htim1);
+		
+		char text[30];
+		sprintf(text,"m_count=%d",motor_count);
+		LCD_ShowString(160,144,200,24,24,(uint8_t*)text);
+		
+		motor_duty= U_set_float*20000;
+		if(motor_duty>10000)
+		{
+			motor_duty = 10000;
+		}
+		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2,motor_duty);
+		servo_duty = (10 * (I_set_float/1.0f)+2.5f)/100.0f*20000;
+		__HAL_TIM_SET_COMPARE(&htim5,TIM_CHANNEL_3,servo_duty);
+		
 		
 		power_grocess2();
     /* USER CODE END WHILE */
@@ -332,11 +356,11 @@ void power_grocess2()
 {
 		uint8_t temp;
 		char text[30];
-//		if(key!=0)
-//		{
-//			sprintf(text,"key=%d",key);
-//			LCD_ShowString(160,0,200,24,24,(uint8_t*)text);
-//		}
+		if(key!=0)
+		{
+			sprintf(text,"key=%d",key);
+			LCD_ShowString(160,0,200,24,24,(uint8_t*)text);
+		}
 
 		sprintf(text,"TEST%d",temp);
 		LCD_ShowString(0,0,200,24,24,(uint8_t*)text);
@@ -346,10 +370,10 @@ void power_grocess2()
 	
 		//小屏幕版本电阻，U_in 200k/20k I_in (3+1)/1
 		//大屏幕版本电阻，U_in 40k/4.3k I_in (4.3+4.3)/4.3
-		U_OUT = ((ADC_value[1]*3300)>>16)*(20.00f/2.150f+1)/1000.f;
+		U_OUT = ((ADC_value[1]*3300)>>16)*(200.00f/20.0f+1)/1000.f;
 		sprintf(text,"OUT_U:%.2fV",U_OUT);
 		LCD_ShowString(160,48,200,24,24,(uint8_t*)text);
-		I_OUT = ((ADC_value[2]*3.300f/65535*((4.3f+4.3f)/4.30f+1.0f))-0.6175f)/50.0f/0.005f;
+		I_OUT = ((ADC_value[2]*3.300f/65535*((3.0f+1.0f)/1.00f+1.0f))-0.6175f)/50.0f/0.005f;
 		sprintf(text,"OUT_I:%.3fA ",I_OUT);
 		LCD_ShowString(160,72,200,24,24,(uint8_t*)text);
 		I_CCS = ADC_value[3]*3.300f/65535;

@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_PWR_LDO_SUPPLY,USE_HAL_DRIVER,STM32H743xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../hardware/BEEP;../hardware/KEY;../hardware/LCD;../hardware/AT24C02;../hardware/NTC</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../hardware/BEEP;../hardware/KEY;../hardware/LCD;../hardware/AT24C02;../hardware/NTC;../hardware/Encoder;../hardware/Icar;../hardware/MOTOR;../hardware/PID;../hardware/SERVO;../hardware/uart_inspector;../hardware/USB</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -1195,6 +1195,76 @@
               <FileName>ntc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\hardware\NTC\ntc.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Encoder</GroupName>
+          <Files>
+            <File>
+              <FileName>Encoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\Encoder\Encoder.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Motor</GroupName>
+          <Files>
+            <File>
+              <FileName>Motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\MOTOR\Motor.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Servo</GroupName>
+          <Files>
+            <File>
+              <FileName>Servo.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\SERVO\Servo.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>PID</GroupName>
+          <Files>
+            <File>
+              <FileName>Pid.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\PID\Pid.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>USB</GroupName>
+          <Files>
+            <File>
+              <FileName>Usb1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\USB\Usb1.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>uart_inspector</GroupName>
+          <Files>
+            <File>
+              <FileName>Inspector.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\uart_inspector\Inspector.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Icar</GroupName>
+          <Files>
+            <File>
+              <FileName>Icar.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\Icar\Icar.c</FilePath>
             </File>
           </Files>
         </Group>

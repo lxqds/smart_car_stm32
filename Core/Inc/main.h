@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdbool.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -59,6 +59,12 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED_Pin GPIO_PIN_3
 #define LED_GPIO_Port GPIOE
+#define MOTOR_DIR_Pin GPIO_PIN_0
+#define MOTOR_DIR_GPIO_Port GPIOA
+#define MOTOR_PWM_Pin GPIO_PIN_1
+#define MOTOR_PWM_GPIO_Port GPIOA
+#define SVERO_PWM_Pin GPIO_PIN_2
+#define SVERO_PWM_GPIO_Port GPIOA
 #define LM5116_EN_Pin GPIO_PIN_0
 #define LM5116_EN_GPIO_Port GPIOB
 #define BEEP_Pin GPIO_PIN_11

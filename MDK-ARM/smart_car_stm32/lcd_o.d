@@ -41,5 +41,6 @@ smart_car_stm32/lcd_o.o: ..\hardware\LCD\LCD_o.c ..\hardware\LCD\lcd_o.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_spi_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h \
+  D:\APP\Keil_539\ARM\ARMCLANG\include\stdbool.h \
   D:\APP\Keil_539\ARM\ARMCLANG\include\stdlib.h ..\hardware\LCD\font.h \
   D:\APP\Keil_539\ARM\ARMCLANG\include\string.h ..\Core\Inc\spi.h

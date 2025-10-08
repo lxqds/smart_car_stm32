@@ -41,5 +41,6 @@ smart_car_stm32/stm32h7xx_it.o: ..\Core\Src\stm32h7xx_it.c \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_spi_ex.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim.h \
   ..\Drivers\STM32H7xx_HAL_Driver\Inc\stm32h7xx_hal_tim_ex.h \
+  D:\APP\Keil_539\ARM\ARMCLANG\include\stdbool.h \
   ..\Core\Inc\stm32h7xx_it.h ..\hardware\KEY\key.h \
   ..\hardware\BEEP\tone.h
