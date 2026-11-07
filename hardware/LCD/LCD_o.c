@@ -5,6 +5,8 @@
 #include "string.h"
 #include "spi.h"
 #include "main.h"
+/* Application may service communication during long blocking redraws. */
+__weak void LCD_ServiceHook(void) {}
 
 
 //LCD的画笔颜色和背景色	   
@@ -19,6 +21,7 @@ _lcd_dev lcddev;
 //data:寄存器值
 void LCD_WR_REG(u16 data)
 {
+    LCD_ServiceHook();
 //		u8 i;	
 
 //		SPI_CS(0);
@@ -45,6 +48,7 @@ void LCD_WR_REG(u16 data)
 //data:寄存器值
 void LCD_WR_DATA(u16 data)
 {
+    LCD_ServiceHook();
 //		u8 i;
 //	
 //		SPI_CS(0);
@@ -99,7 +103,8 @@ void LCD_WriteRAM_Prepare(void)
 //LCD写GRAM
 //RGB_Code:颜色值
 void LCD_WriteRAM(u16 RGB_Code)
-{							    
+{
+    LCD_ServiceHook();							    
 //写十六位GRAM
 //  u8 i;
 //	SPI_CS(0);

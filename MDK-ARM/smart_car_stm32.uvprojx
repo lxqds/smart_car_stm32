@@ -38,7 +38,7 @@
           <bCustSvd>0</bCustSvd>
           <UseEnv>0</UseEnv>
           <BinPath></BinPath>
-          <IncludePath></IncludePath>
+          <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
           <LibPath></LibPath>
           <RegisterFilePath></RegisterFilePath>
           <DBRegisterFilePath></DBRegisterFilePath>
@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>USE_PWR_LDO_SUPPLY,USE_HAL_DRIVER,STM32H743xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../hardware/BEEP;../hardware/KEY;../hardware/LCD;../hardware/AT24C02;../hardware/NTC;../hardware/Encoder;../hardware/Icar;../hardware/MOTOR;../hardware/PID;../hardware/SERVO;../hardware/uart_inspector;../hardware/USB</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc;../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32H7xx/Include;../Drivers/CMSIS/Include;../hardware/BEEP;../hardware/KEY;../hardware/LCD;../hardware/AT24C02;../hardware/NTC;../hardware/Encoder;../hardware/Icar;../hardware/MOTOR;../hardware/PID;../hardware/SERVO;../hardware/uart_inspector;../hardware/USB;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -359,7 +359,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath></IncludePath>
+              <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
             </VariousControls>
           </Aads>
           <LDads>
@@ -385,7 +385,7 @@
         <Group>
           <GroupName>Application/MDK-ARM</GroupName>
           <Files>
-            <File>
+            <File><FileName>comm_uart7.c</FileName><FileType>1</FileType><FilePath>../Core/Src/comm_uart7.c</FilePath></File><File>
               <FileName>startup_stm32h743xx.s</FileName>
               <FileType>2</FileType>
               <FilePath>startup_stm32h743xx.s</FilePath>
@@ -455,7 +455,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -511,7 +511,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -567,7 +567,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -623,7 +623,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -689,7 +689,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -760,7 +760,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -816,7 +816,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -952,7 +952,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -1008,7 +1008,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -1074,7 +1074,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -1130,7 +1130,7 @@
                       <MiscControls></MiscControls>
                       <Define></Define>
                       <Undefine></Undefine>
-                      <IncludePath></IncludePath>
+                      <IncludePath>;../USB_Log;../USB_Log/Core/Inc;../USB_Log/CDC/Inc</IncludePath>
                     </VariousControls>
                   </Cads>
                 </FileArmAds>
@@ -1200,78 +1200,29 @@
         </Group>
         <Group>
           <GroupName>Encoder</GroupName>
-          <Files>
-            <File>
-              <FileName>Encoder.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\hardware\Encoder\Encoder.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>Motor</GroupName>
-          <Files>
-            <File>
-              <FileName>Motor.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\hardware\MOTOR\Motor.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>Servo</GroupName>
-          <Files>
-            <File>
-              <FileName>Servo.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\hardware\SERVO\Servo.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>PID</GroupName>
-          <Files>
-            <File>
-              <FileName>Pid.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\hardware\PID\Pid.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>USB</GroupName>
-          <Files>
-            <File>
-              <FileName>Usb1.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\hardware\USB\Usb1.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>uart_inspector</GroupName>
-          <Files>
-            <File>
-              <FileName>Inspector.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\hardware\uart_inspector\Inspector.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>Icar</GroupName>
-          <Files>
-            <File>
-              <FileName>Icar.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\hardware\Icar\Icar.c</FilePath>
-            </File>
-          </Files>
         </Group>
         <Group>
           <GroupName>::CMSIS</GroupName>
         </Group>
-      </Groups>
+      <Group><GroupName>USB CDC Log</GroupName><Files><File><FileName>usb_log.c</FileName><FileType>1</FileType><FilePath>../USB_Log/usb_log.c</FilePath></File><File><FileName>usbd_conf.c</FileName><FileType>1</FileType><FilePath>../USB_Log/usbd_conf.c</FilePath></File><File><FileName>usbd_desc.c</FileName><FileType>1</FileType><FilePath>../USB_Log/usbd_desc.c</FilePath></File><File><FileName>usbd_core.c</FileName><FileType>1</FileType><FilePath>../USB_Log/Core/Src/usbd_core.c</FilePath></File><File><FileName>usbd_ctlreq.c</FileName><FileType>1</FileType><FilePath>../USB_Log/Core/Src/usbd_ctlreq.c</FilePath></File><File><FileName>usbd_ioreq.c</FileName><FileType>1</FileType><FilePath>../USB_Log/Core/Src/usbd_ioreq.c</FilePath></File><File><FileName>usbd_cdc.c</FileName><FileType>1</FileType><FilePath>../USB_Log/CDC/Src/usbd_cdc.c</FilePath></File><File><FileName>stm32h7xx_hal_pcd.c</FileName><FileType>1</FileType><FilePath>../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd.c</FilePath></File><File><FileName>stm32h7xx_hal_pcd_ex.c</FileName><FileType>1</FileType><FilePath>../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pcd_ex.c</FilePath></File><File><FileName>stm32h7xx_ll_usb.c</FileName><FileType>1</FileType><FilePath>../Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_usb.c</FilePath></File></Files></Group></Groups>
     </Target>
   </Targets>
 

@@ -1,0 +1,6 @@
+PASS DAC boundaries/nonfinite/monotonic 33001 samples
+PASS EEPROM timeout/status/cooldown/wrap/recovery
+PASS bounded newline flood and TX backpressure without TX-ready
+PASS byte and elapsed-time budgets
+PASS RX overflow/error injection/recovery and 300 wrap cycles
+PASS draft control gate: arming, deadman, stale/duplicate, reconnect, wrap, estop, outputs disabled
