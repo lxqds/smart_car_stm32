@@ -1,0 +1,8 @@
+test_disabled_neutral_heartbeat (test_racing.RacingTests) ... ok
+test_gate_shift_ramp_brake_loss (test_racing.RacingTests) ... ok
+test_timeout_wrap_and_invalid (test_racing.RacingTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+OK

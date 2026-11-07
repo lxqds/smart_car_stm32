@@ -1,0 +1,10 @@
+取消瞬时反向计数锁停（2026-11-08，未烧录）
+用户明确选择仅取消瞬时反向计数锁停；不取消每10ms计数异常范围。
+Core/Inc/motor_pwm_core.h移除delta*sign < -4触发MOTOR_STOP_ENCODER的判断。反向计数保留真实符号进入PI，不取绝对值、不改零。此项移除后，反馈方向相反本身不再触发编码器锁停（也没有另加持续反向判定）；若方向持续相反，PI仍可能增加所请求方向的占空比，保持原上升速率和19500上限。该变更不证明旧故障触发原因已完全定位。
+保留：反馈有效性、20ms采样新鲜度、-4096<delta<4096、无反馈停机、通信/电源/调度/数值保护、Y关闭、换向需300ms静止、联合故障互锁。
+新增/更新测试：前进目标反向-5计数不撤销许可；随后正向恢复；零目标反向反馈仍零输出；倒车目标正向+5计数不撤销许可且输出保持反向和斜率约束；正负4096异常仍锁停；联合模式瞬时反向不连带停舵机。全部C回归和24项Python回归通过。日志debug_environment/encoder-sign-unlatch-tests-20261108.txt。
+Keil重编译0错误3警告；日志debug_environment/encoder-sign-unlatch-keil-20261108.txt。
+HEX SHA256 05CB9D5981EEBD89D909BF234A1E4D5D9AD34783EE78906EDB3381814998F1E0。
+本轮未烧录、未复位、未操作串口/DAP/RK。板上仍为此前9F37A246联合诊断版；该旧固件保存在Git b91dc19检查点。新代码尚未完成硬件验证，未自动提交或推送。
+部署更新（2026-11-08 00:58）：用户重连DAP后，同一05CB9D59固件烧录成功，OpenOCD退出0，Programming Finished、Verified OK、Resetting Target。日志debug_environment/flash-encoder-sign-20261108-005800.stderr.txt。此项取代前文未烧录状态；新控制行为仍未经硬件试转验证。RK SSH此前断开，停止服务命令未确认，不声称已停止RK常驻发送；本次未主动恢复或发送控制。
+USB启动核验完成：encoder-sign-boot-20261108.txt，tick12036电源st0/fault0/en0，CTRL:OFF/RX FRESH，电机arm0/run0/req20k0/CCR0，舵机arm0/on0/out0。上位机仍有新鲜数据，不等同服务已停止。未进行新固件动力测试。

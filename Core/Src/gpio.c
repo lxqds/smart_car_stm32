@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "gpio.h"
+#include "vehicle_indicator.h"
 
 /* USER CODE BEGIN 0 */
 
@@ -54,7 +55,13 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, LED_Pin|GPIO_PIN_9, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_RESET);
+#if VEHICLE_LED_CONFIGURED
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin,
+                   VEHICLE_LED_ACTIVE_HIGH ? GPIO_PIN_RESET : GPIO_PIN_SET);
+#else
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+#endif
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MOTOR_DIR_GPIO_Port, MOTOR_DIR_Pin, GPIO_PIN_RESET);

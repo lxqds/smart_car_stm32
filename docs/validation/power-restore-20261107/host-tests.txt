@@ -1,0 +1,48 @@
+PASS DAC boundaries/nonfinite/monotonic 33001 samples
+PASS EEPROM timeout/status/cooldown/wrap/recovery
+PASS bounded newline flood and TX backpressure without TX-ready
+PASS byte and elapsed-time budgets
+PASS RX overflow/error injection/recovery and 300 wrap cycles
+PASS draft control gate: arming, deadman, stale/duplicate, reconnect, wrap, estop, outputs disabled
+PASS protocol parser, noise/CRC/length/resync/wrap and no-output session link
+PASS legacy 24 42 parser; encoder wrap/sign; PID saturation/recovery; freshness/permit/calibration gates
+PASS P2-1 before/exact/after deadline, local rearm+neutral, first permit, uint32 wrap
+PASS P2-2 embedded old frames, delayed padding, multi-frame resync, uint32 wrap, stale rejection
+PASS P2-3 actual vehicle formatting -> USB 48-char details/96-byte queue/64-byte chunks; maxima, negatives, busy retry, drop count
+PASS display WAIT/FRESH/STALE/INVALID, speed and inverse command-angle, 40-column bounds
+PASS UART7 IRQ/ring -> legacy parser, final-byte dispatch, bounded bursts and overflow recovery
+PASS ports review gate: no timer init/start/output
+PASS simulated PWM frequency/limits/reversal blanking/reconfigure/start-failure
+PASS display metadata range/version/checksum/recovery/wrap; no control callback
+PASS power off/start/ramp/run/stop, startup overcurrent, fault latch/rearm, ADC loss, invalid input, startup timeout and wrap
+PASS actual Power_Service: DAC-before-enable, boot-off, stop, ADC freshness/error and DAC failure
+test_deadzone_stale_invalid_wrap (test_host_control.InputTests) ... ok
+test_enable_release_disconnect_reconnect (test_host_control.InputTests) ... ok
+test_c_python_cross_vectors (test_host_control.ProtocolTests) ... ok
+test_display_probe_without_devices (test_host_control.ProtocolTests) ... ok
+test_fragmentation_and_coalescing (test_host_control.ProtocolTests) ... ok
+test_main_legacy_wire (test_host_control.ProtocolTests) ... ok
+test_recovery_and_timeout (test_host_control.ProtocolTests) ... ok
+test_finite_retries_wrap_and_no_control_retry (test_host_control.TransactionTests) ... ok
+test_lost_ack_retry_and_correlation (test_host_control.TransactionTests) ... ok
+test_stop_ack_must_confirm_stopped_state (test_host_control.TransactionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.333s
+
+OK
+test_hold_release_loss_reconnect (test_gamepad.GamepadTests) ... ok
+test_sample_stall_and_range (test_gamepad.GamepadTests) ... ok
+test_snapshot_queries_stationary_state_and_loss (test_gamepad.GamepadTests) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.000s
+
+OK
+test_gate_shift_ramp_brake_loss (test_racing.RacingTests) ... ok
+test_timeout_wrap_and_invalid (test_racing.RacingTests) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+OK

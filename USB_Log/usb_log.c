@@ -4,6 +4,7 @@
 #include "usbd_cdc.h"
 #include "usbd_desc.h"
 #include "usb_log.h"
+#include "actuator_mode.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -55,7 +56,7 @@ void USB_Log_Init(void)
     if (USBD_CDC_RegisterInterface(&device, &callbacks) != USBD_OK) return;
     if (USBD_Start(&device) != USBD_OK) return;
     started = 1;
-    USB_Log_Event("BOOT", "UART7 115200 8N1 PWM_OFF");
+    USB_Log_Event("BOOT", "UART7 115200 " ACTUATOR_MODE_TEXT);
 }
 
 void USB_Log_Poll(void)
@@ -66,7 +67,7 @@ void USB_Log_Poll(void)
     if ((uint32_t)(now - last_status) >= 1000U) {
         char status[48];
         last_status = now;
-        snprintf(status, sizeof(status), "PWM_OFF dropped=%lu", (unsigned long)dropped);
+        snprintf(status, sizeof(status), "%s dropped=%lu", ACTUATOR_MODE_TEXT, (unsigned long)dropped);
         USB_Log_Event("ALIVE", status);
     }
     /* Protect class pointer against reset/deconfigure IRQ. No waiting inside. */

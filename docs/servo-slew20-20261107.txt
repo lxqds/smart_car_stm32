@@ -1,0 +1,14 @@
+舵机跟手速度调整（2026-11-07）
+
+Core/Inc/servo_control.h：SERVO_RISE_US从1改为20。20ms周期不变，即指令脉宽最大变化1000us/s；保留原1140/2000指令阈值、1000..1860输出范围、中位1500、原MCU方向及RK手柄反向。电机仍禁用，未改电源、屏幕、Y、本地授权、通信超时及其他保护。
+中位到1000需25步=500ms，中位到1860需18步=360ms，1000至1860需43步=860ms。这些为软件指令渐变时间，不代表实测机械响应。
+
+tests/test_servo_control.c：保留旧方向映射对照（不再要求旧版1us渐变轨迹相同）；增加逐步精确时序、全幅换向、回中、小目标不超调、渐变途中Y立即停机断言。全套C回归及Python 10+3+5+4项通过。
+Keil完整重编译0错误、3警告，日志debug_environment/servo-slew20-keil.txt。
+HEX SHA256：884832FE9920013884C087FA7AFD7F76B16A7088D40033B0D4D4A32D03D9C098。
+本轮未烧录、未访问串口或启动手柄发送。板上仍为原1us/20ms版本。新速度是否合适须后续实测，必要时可改10us/20ms；不把旧速度下机械测试结论当作本版验证。
+
+用户授权后已于2026-11-07 23:42烧录：OpenOCD退出0，Programming Finished、Verified OK、Resetting Target。实际写入HEX SHA256为884832FE9920013884C087FA7AFD7F76B16A7088D40033B0D4D4A32D03D9C098。日志debug_environment/flash-servo-slew20-20261107-234257.stdout.txt及.stderr.txt。此记录更新前述未烧录状态；手柄发送已核实停止，未启动新转向动作，实际跟手程度尚未验证。
+
+20us步进实测更新：用户确认跟手程度合适、动作平稳且能回中。USB记录多次目标变化，211882ms回到1500us。用户回复已关Y，但220682ms采集仍arm1/on1/stop0/out1500，因此本轮不记录为Y关闭通过。随后主动SIGINT停止本轮RK发送进程2556928，以通信保护结束动作。当前测试仅舵机，电机禁用且动力断开；非整车联合验收。日志dropped=3751，非无损采集。
+证据保存：docs/validation/servo-legacy-limits-20261107/slew20-user-verified-usb.txt。保留20us/20ms，不再调整速度；电源开关状态另以实际日志/用户操作为准。

@@ -1,0 +1,36 @@
+异常停机与手柄连接提示（2026-11-08）
+
+提示表：
+- 有效Y开启：3声，每声60ms、间隔60ms。
+- 正常Y关闭：2声，每声70ms、间隔70ms。
+- 运行中异常STOP状态变化或使能期间控制/手柄连接丢失：单次500ms长响，然后停止；持续同一故障不重复长响。
+- 上位机成功取得有效手柄输入，连接状态从0到1：1声70ms。重复状态包不响；重新断开再连接可再响。
+- 优先级：异常长响最高，不被Y/界面短音截断。长响/已有序列期间的连接事件合并为一个待播放提示，待当前序列完成且手柄仍连接再播放。正常Y关闭在联合联停中导致另一侧reason7时，不误当作异常报警。
+
+实现与边界：
+tone.c同时读取MotorSpeedView和ServoView停止原因，比较上次状态；初始化时记住当前原因，启动默认不报警。reason0/正常Y reason3不作异常，reason1从ready/armed原因0转入时提示；重复reason不会刷屏式鸣叫。控制有效期丢失或运行中手柄断开，即使上位机同时发送Y关闭也按异常长响处理。软件循环/时钟仍运行时才能播放，不保证CPU HardFault停住、掉电时还能发声。声音不阻塞动力停止，也不解除任何保护。
+使用PD11/TIM13现有900Hz音调，500ms为软件定时，实际声学时长尚未实测。
+
+配套上位机协议扩展（原控制和挡位包不改）：
+新增24 42 31 06 CONNECTED SUM8，CONNECTED只能0或1，总长6。RacingControl取得合法手柄采样时发1，设备失联/采样异常/退出清0。周期跟随原50ms发送循环。
+MCU独立记录末字节到达时间，500ms无更新或UART丢失视为未连接。该包仅用于提示，不刷新速度控制期限、不授予许可。旧固件将其视为unsupported，不会解析成速度命令。
+这里的已连接指Linux输入设备可取得合法采样，不把串口存在当手柄连接，也不能保证接收器固件始终能正确报告无线端失联。
+
+变更：hardware/BEEP/tone.c；Core/Inc/vehicle_core.h、vehicle_app.h；Core/Src/vehicle_core.c、vehicle_app.c；host_control/racing_control.py及对应tests。
+全部C主机回归、24项Python回归通过；最后优先级队列细化后重跑真实tone.c测试通过。覆盖单次长响/结束/持续故障去重、正常Y与联停区分、断联、连接边沿/重复/排队、健康包校验与非法值、500ms准确到期与uint32回绕、UART丢失。未用实际蜂鸣器验证。
+本轮未烧录MCU，也未修改运行中的RK服务。配套racing_control.py在本地已更新；下一次部署应与新联合固件一并同步。现有RK常驻服务继续原版本运行。
+
+最终Keil编译0错误、3警告。日志debug_environment/control-alert-final-keil.txt。HEX SHA256：76069182F13638EDFBF46D650D6936D856341CC4EBEF1783A405888C4D948638。未烧录、未实物发声验证。
+
+部署更新（2026-11-08 00:07）：DAP重连后烧录成功，OpenOCD退出0，Programming Finished、Verified OK、Resetting Target。HEX仍76069182F13638EDFBF46D650D6936D856341CC4EBEF1783A405888C4D948638。烧录日志debug_environment/flash-combined-alert-20261108-000711.stdout.txt及.stderr.txt。
+USB启动记录debug_environment/combined-alert-boot-20261108.txt确认SPEED_PI SERVO_ON；电源st0/en0/fault0，电机ready1/arm0/run0/req20k0，TIM2 CCR0/ARR47999；舵机ready1/arm0/on0/out0。未进行动力动作或声音实测。
+配套RK /opt/smart-car/host_control/racing_control.py已同步，旧文件备份racing_control.py.before-health-20261108。本地与RK SHA256一致：673BDFEF5D28A529B59AD919D131B24492C5D7892AAD8424DA8F70239FAFB768。RK纯函数验证25字节组合包、连接/断开报告及默认Y关闭通过，未发送串口。smart-car-gamepad.service保持inactive；开机自启配置未取消，后续主动恢复/下次RK启动会启动。
+此记录取代前文未烧录/未部署状态，硬件动态和实际声音仍待验证。
+
+无动力提示音实测更新（2026-11-08）：
+已恢复RK常驻smart-car-gamepad.service，PID2650171，active；USB采集文件debug_environment/combined-alert-audio-live1-usb.txt。电机动力保持断开。
+用户逐项听确认：手柄连接1声；Y关闭2声；Y开启3声；Y开启时关闭手柄后长响一次，随后安静。长响为听感确认，未用仪器测量500ms声学时长。
+RK日志00:13:23报告input_lost、enabled=false、speed_mm_s=0。MCU tick372585电机arm0/run0/req20k0/CCR0，舵机arm0/on0/out0；tick377445起屏幕CTRL:OFF、RX FRESH（上位机仍发送零目标）。板上电源仍ON，不能将PWM关闭等同于电源关闭。
+本轮掉线前未授予动力许可，验证了提示音与失联后的零输出状态，不代表完成带载异常停车测试或所有STOP原因的硬件测试。重连不自动恢复控制待下一步确认。
+重连验证完成（2026-11-08）：用户确认重新开机配对后滴1声、屏幕仍CTRL:OFF。RK日志00:14:17 connected、enabled=false、speed_mm_s=0；MCU tick424436 RX FRESH、CTRL:OFF，tick424585电机arm0/run0/CCR0，tick424690舵机arm0/on0/out0。未自动恢复许可或输出。常驻服务仍active、PID2650171，未停止。
+本轮无动力提示音及重连保持关闭验证完成；未做带载停车或逐一注入全部STOP原因。当前板上电源输出仍ON约12.045V，控制输出为零不等于板上电源断开。USB累计dropped=9193，不宣称日志无丢失。

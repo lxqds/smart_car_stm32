@@ -1,0 +1,12 @@
+{
+  "sent_frames": 204,
+  "mcu_count": 204,
+  "outputs_all_zero": true,
+  "uart_errors_all_zero": true,
+  "usb_dropped_values": [
+    0,
+    551
+  ],
+  "physical_screen": "user confirmed new fields and original UI normal",
+  "hex_sha256": "572D7C16E5A16BBCA6C7F9377408ED0511E9732B92C9EF512ED764FF971AAB9B"
+}

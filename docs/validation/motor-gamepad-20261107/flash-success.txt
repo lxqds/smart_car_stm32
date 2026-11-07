@@ -1,0 +1,32 @@
+Open On-Chip Debugger 0.12.0 (2023-02-02) [https://github.com/sysprogs/openocd]
+Licensed under GNU GPL v2
+libusb1 09e75e98b4d9ea7909e8837b7a3f00dda4589dc3
+For bug reports, read
+	http://openocd.org/doc/doxygen/bugs.html
+Info : CMSIS-DAP: SWD supported
+Info : CMSIS-DAP: Atomic commands supported
+Info : CMSIS-DAP: Test domain timer supported
+Info : CMSIS-DAP: FW Version = 2.1.0
+Info : CMSIS-DAP: Interface Initialised (SWD)
+Info : SWCLK/TCK = 0 SWDIO/TMS = 1 TDI = 0 TDO = 0 nTRST = 0 nRESET = 1
+Info : CMSIS-DAP: Interface ready
+Info : clock speed 100 kHz
+Info : SWD DPIDR 0x6ba02477
+Info : [stm32h7x.cpu0] Cortex-M7 r1p1 processor detected
+Info : [stm32h7x.cpu0] target has 8 breakpoints, 4 watchpoints
+Info : gdb port disabled
+Info : gdb port disabled
+[stm32h7x.cpu0] halted due to debug-request, current mode: Thread 
+xPSR: 0x01000000 pc: 0x080003ac msp: 0x240047e8
+** Programming Started **
+Info : Device: STM32H74x/75x
+Info : flash size probed value 2048k
+Info : STM32H7 flash has dual banks
+Info : Bank (0) size is 1024 kb, base address is 0x08000000
+Info : Padding image section 0 at 0x08013208 with 24 bytes (bank write end alignment)
+Warn : Adding extra erase range, 0x08013220 .. 0x0801ffff
+** Programming Finished **
+** Verify Started **
+** Verified OK **
+** Resetting Target **
+shutdown command invoked

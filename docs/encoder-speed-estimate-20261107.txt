@@ -1,0 +1,22 @@
+RT1064 source commit: 0a87826241f6ceab5c7228bdc8808db77a8519c5
+Motor.c:39 diameter=0.064 m; trailing comment 68cm conflicts with code.
+Motor.c:36-37 legacy encoder=512, ratio=2.7; legacy denominator=1382.4.
+New assumption: 5400 counts per both wheels moving forward one full turn. Not calibrated.
+Theoretical circumference: 201.061929830 mm
+Distance per count: 0.037233690709 mm
+Speed m/s = counts_per_10ms * 0.003723369071
+Distance m = accumulated_counts * 0.000037233691
+m/s | km/h | counts/10ms | wheel rpm
+0.1 | 0.36 | 26.857 | 29.842
+0.5 | 1.8 | 134.287 | 149.208
+1 | 3.6 | 268.574 | 298.416
+2 | 7.2 | 537.148 | 596.831
+3 | 10.8 | 805.722 | 895.247
+4 | 14.4 | 1074.296 | 1193.662
+5 | 18 | 1342.870 | 1492.078
+Examples:
+10 counts/10ms = 0.037233691 m/s
+100 counts/10ms = 0.372336907 m/s
+500 counts/10ms = 1.861684535 m/s
+1000 counts/10ms = 3.723369071 m/s
+No firmware/config changes, no flashing, no motor/servo commands. Actual rolling circumference and exact count calibration remain unverified.

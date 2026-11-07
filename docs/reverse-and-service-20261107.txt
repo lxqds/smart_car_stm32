@@ -1,0 +1,30 @@
+R挡与RK3576常驻服务（2026-11-07）
+
+操作与协议
+1. Y开启后，1挡按X下降至R；R按B回1挡。跨前进/倒车必须松RT且上位机目标速度为0；若不满足，本次按键边沿被忽略，归零后重新按，不排队自动换挡。
+2. R最高0.5m/s，RT加速，LT令目标减速至0。前进1..7挡不变。刹车仍是零驱动/目标减速，不新增电气制动。
+3. 使用原0x01有符号float速度，倒车负值；0x30 v2 metadata的gear=0定义为R，v1仍仅接受1..7。MCU屏幕显示R。不是新帧头或校验算法。
+4. MCU方向切换要求先有300ms连续零目标且每10ms编码器增量绝对值<=4；这是工程停稳阈值，非精确静止测量。条件不满足报MOTOR_STOP_DIRECTION=11，撤销两侧许可，不自动重试反转；需停车、归中、Y关闭后KEY3重新授权。
+5. 速度PI按请求方向处理反馈和输出幅值，输出带正负号；反向编码器符号检查随方向切换。PWM端口保留换向零PWM间隔和±19500钳位。舵机仍20us/20ms，联合模式允许-0.5..5m/s。
+
+常驻运行
+原来使用--duration 600，10分钟退出且每次测试后停止。新增--duration 0持续运行；SIGTERM退出时发送零控制与disabled元数据。手柄无设备/失联时继续零目标并等待重连；程序/串口异常由systemd每3秒重启，重启及重连清除Y和档位，需松键归中后新按Y。MCU本地授权/控制新鲜度保护保留。
+服务smart-car-gamepad.service已安装到/etc/systemd/system并enable --now，程序固定目录/opt/smart-car。使用cat用户及仅服务附加input/dialout组，未给用户增加永久组。原/home/cat/vehicle_gamepad.sA3j4o临时目录保留，勿再从旧目录手动启动第二个发送程序。
+已核实ActiveState=active、SubState=running、UnitFileState=enabled、NRestarts=0；重启服务后日志enabled=false、speed=0、gear=1。当前系统（包括root枚举）没有匹配手柄，服务正常等待；串口已打开，发送零目标。不将此说成手柄实物重连通过。
+本机与RK已核对源码哈希：
+gamepad_display.py 6A720D6AC404935A4F1794C52D77C2BD94ECBAC3461B25F8DF6B96F50FB3C239
+racing_control.py 7105CDF14D17D50ABDD8D68212720D2B40985CF31E0080544093E8D01D1E82B2
+
+运维（在RK SSH执行）
+状态：systemctl status smart-car-gamepad.service
+日志：sudo journalctl -u smart-car-gamepad.service -f
+停止：sudo systemctl stop smart-car-gamepad.service
+恢复：sudo systemctl start smart-car-gamepad.service
+禁用开机启动：sudo systemctl disable --now smart-car-gamepad.service
+以后烧录前先停止此服务，烧录后先核对状态再恢复。停止不是断动力电源。
+
+验证与固件状态
+全部C主机回归通过，Python 10+3+6+1+4=24项通过。新增R挡负速度与元数据、持油门拒绝换向、掉线重连不自动使能、R屏幕、MCU停稳计时/运动中零目标不视作停稳、倒车PI、联合倒车转向、换向保护联停、带符号端口零PWM间隔测试；常驻主函数用模拟设备/时钟验证duration0持续至SIGTERM、退出disabled包，最后日志去重修改后该测试再通过。
+Keil重编译0错误3警告，debug_environment/reverse-service-keil.txt。
+新联合R挡HEX SHA256：6377C75B106249D6CA93AAFE8B5442A0A07E853CE578F7E4D64B795F9AB4D74C。
+未烧录新MCU固件，板上仍为884832FE舵机独立版，不支持本轮联合倒车。不能现在将R挡称作实车可用。未重启RK验证真实开机启动，未做实际拔串口/无线重连验证，未进行动力动作或机械换向验证。部署的服务会持续运行，不再在本轮结束时自动停止。

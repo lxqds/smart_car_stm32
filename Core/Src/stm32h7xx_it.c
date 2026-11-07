@@ -20,6 +20,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32h7xx_it.h"
+#include "vehicle_app.h"
+#include "motor_pwm.h"
+#include "servo_control.h"
+#include "vehicle_indicator.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "key.h"
@@ -55,7 +59,7 @@
 /* USER CODE BEGIN 0 */
 uint8_t time_1ms;
 uint8_t time_10ms;
-extern uint8_t key;
+extern volatile uint8_t key;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -90,6 +94,8 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
+  MotorPWM_Abort();
+  HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);
 
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
@@ -105,6 +111,8 @@ void HardFault_Handler(void)
 void MemManage_Handler(void)
 {
   /* USER CODE BEGIN MemoryManagement_IRQn 0 */
+  MotorPWM_Abort();
+  HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);
 
   /* USER CODE END MemoryManagement_IRQn 0 */
   while (1)
@@ -120,6 +128,8 @@ void MemManage_Handler(void)
 void BusFault_Handler(void)
 {
   /* USER CODE BEGIN BusFault_IRQn 0 */
+  MotorPWM_Abort();
+  HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);
 
   /* USER CODE END BusFault_IRQn 0 */
   while (1)
@@ -135,6 +145,8 @@ void BusFault_Handler(void)
 void UsageFault_Handler(void)
 {
   /* USER CODE BEGIN UsageFault_IRQn 0 */
+  MotorPWM_Abort();
+  HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);
 
   /* USER CODE END UsageFault_IRQn 0 */
   while (1)
@@ -192,6 +204,10 @@ void SysTick_Handler(void)
 
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
+  VehicleApp_Tick1ms();
+  MotorPWM_Tick();
+  Servo_Tick();
+  Tone_ControlPoll();
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
   /* USER CODE END SysTick_IRQn 1 */
@@ -224,7 +240,8 @@ void DMA1_Stream0_IRQHandler(void)
 void TIM8_UP_TIM13_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 0 */
-	Tone_TimerHandler();
+    if(__HAL_TIM_GET_FLAG(&htim13,TIM_FLAG_UPDATE) &&
+       __HAL_TIM_GET_IT_SOURCE(&htim13,TIM_IT_UPDATE))Tone_TimerHandler();
   /* USER CODE END TIM8_UP_TIM13_IRQn 0 */
   HAL_TIM_IRQHandler(&htim13);
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 1 */
@@ -248,7 +265,9 @@ void TIM8_TRG_COM_TIM14_IRQHandler(void)
 			if(time_10ms>50)
 			{
 				time_10ms=0;
-				HAL_GPIO_TogglePin(GPIOE,GPIO_PIN_3);
+				#if !VEHICLE_LED_CONFIGURED && !VEHICLE_LED_TEST_LOW
+                HAL_GPIO_TogglePin(GPIOE,GPIO_PIN_3);
+#endif
 			}
 		
 		}

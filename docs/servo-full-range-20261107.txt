@@ -1,0 +1,16 @@
+手柄全转向范围版本（2026-11-07）
+
+取消RacingControl原先±15指令单位（1500±45）的限制。保留10%摇杆死区，中位1500；正方向映射至串口1140，负方向映射至2000，两侧使用各自360/500跨度。手柄输入反向配置保持true，MCU继续使用原RT1064方向，最终PWM范围1000..1860us。
+angle字段仍是(1500-command)/3的协议换算值，不代表机械角度。保留MCU每20ms最多1us的渐变、Y开关、本地授权、通信失联及电源保护。
+
+改动仅host_control/racing_control.py与tests/test_racing.py。全部C主机回归通过，Python 10+3+5+4项通过；新增2001点范围、单调性、死区、端点、校验和及失联归中测试。
+已同步RK /home/cat/vehicle_gamepad.sA3j4o/host_control/racing_control.py，原文件备份为racing_control.py.before-full-range-20261107。远端纯函数验证2000/1500/1140通过，无串口发送、无动作。
+本地及RK源码SHA256：BBFCAA7199724B3E695B5EC2E46BC1F8BCC3807D3FA919B2EAF2DA762A440389。
+
+MCU源码未改，未生成新HEX、未烧录；沿用已装版本SHA256 3AD9074BF28B79FAB7D755048142F107C539D7984A32DECCC994631F6807257B。无必要重复Keil编译同一MCU源码。仍为SERVO_ONLY MOTOR_OFF，不是电机舵机同时启用的最终整车版。
+发送程序保持停止。全范围机械动作未验证；此前小范围物理成功不能作为机械端点验收。原方向、原阈值保持，不填写实测角度。
+
+用户授权重烧：2026-11-07 23:34，OpenOCD退出0，Programming Finished、Verified OK、Resetting Target。SHA256仍为3AD9074BF28B79FAB7D755048142F107C539D7984A32DECCC994631F6807257B。日志debug_environment/flash-servo-full-20261107-233413.stdout.txt及.stderr.txt。发送保持停止；本次未进行全范围动作验证。
+
+本轮硬件观察更新：用户分别确认左右平稳、有间隙、能回中，最后已关Y。USB左侧238685ms CMD1140/target1860/out1860；右侧294885ms CMD1991/target1009/out1009（采样未记录到1000端点，不能宣称端点1000已验证）；309685ms回中1500，310685ms输出0；312685ms arm0/on0/stop3，证实Y关闭撤销许可。dropped=4292，日志并非无损，不以采样最小值断言连续波形极值。实际角度仍未测量。
+测试结束已SIGINT停止RK本轮发送进程2522420。电源日志仍ON约12.03V，需用户KEY4关闭。电机动力保持断开、固件电机禁用。本轮未修改固件，不能视为电机舵机同时运行验收。证据：docs/validation/servo-legacy-limits-20261107/full-range-user-verified-usb.txt。

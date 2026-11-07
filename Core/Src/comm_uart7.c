@@ -1,11 +1,12 @@
-/* Bring-up only: UART7 PB3 RX / PB4 TX, 115200 8N1.
- * Cooperative diagnostic module in main application. Not the vehicle protocol.
+/* UART7 PB3 RX / PB4 TX, 115200 8N1.
+ * Review build selects legacy binary RX; ASCII diagnostics remain selectable.
  * W25Q64 /CS on PD6 must also have a hardware pull-up during reset.
  */
 #include "main.h"
 #include <string.h>
 #include <stdio.h>
 #include "usb_log.h"
+#include "vehicle_app.h"
 
 /* Single IRQ producer / main-loop consumer. Keep arrival timestamps so a
  * parser timeout does not depend on time spent sending a previous reply. */
@@ -138,10 +139,18 @@ void Comm_UART7_Init(void)
 
     USB_Log_Init();
     USB_Log_Event("UART_MODE", "IRQ_RX1024_TX2048 BOUNDED PWM_OFF");
+#if VEHICLE_LEGACY_UART
+    USB_Log_Event("UART_PROTOCOL", "LEGACY24_42 CONTROL_ONLY NO_PID_ACK");
+#else
+    USB_Log_Event("UART_PROTOCOL", "ASCII_DIAGNOSTIC");
+#endif
 }
 
 void Comm_UART7_Poll(void)
 {
+#if VEHICLE_LEGACY_UART
+    VehicleApp_LogPoll();
+#endif
     static char line[32];
     static unsigned used;
     static int discard;
@@ -165,6 +174,9 @@ void Comm_UART7_Poll(void)
             stats_tick = now;
         }
         if (rx_loss) {
+#if VEHICLE_LEGACY_UART
+            VehicleApp_RxLost();
+#endif
             uint32_t mask = __get_PRIMASK();
             __disable_irq();
             rx_tail = rx_head;
@@ -190,6 +202,10 @@ void Comm_UART7_Poll(void)
         uint32_t arrived = rx_ring[rx_tail].tick;
         __DMB();
         rx_tail = (rx_tail + 1U) & (RX_SIZE - 1U);
+#if VEHICLE_LEGACY_UART
+        VehicleApp_Receive((uint8_t)c,arrived);
+        continue;
+#endif
         if ((used || discard) && (uint32_t)(arrived - last) > 200U) {
             used = 0;
             discard = 0;

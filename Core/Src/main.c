@@ -19,11 +19,20 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "comm_uart7.h"
+#include "vehicle_app.h"
+#include "motor_pwm.h"
+#include "servo_control.h"
+#include "vehicle_display.h"
 #include "dac_safe.h"
+#include "power_control.h"
+#include "power_log.h"
 #include "usb_log.h"
 /* Keep disabled until separately validated with the user. */
 #define CAR_ACTUATORS_ENABLED 0
-#define POWER_OUTPUT_ENABLED 0
+#if CAR_ACTUATORS_ENABLED
+#error Legacy UI actuator test must remain disabled; use reviewed vehicle ports only
+#endif
+#define POWER_OUTPUT_ENABLED 1
 #include "adc.h"
 #include "dac.h"
 #include "dma.h"
@@ -42,11 +51,11 @@
 #include "AT24C02.h"
 #include "ntc.h"
 
-uint8_t key;
+volatile uint8_t key;
 
 float OUT_ADC;
-uint16_t ADC_value[5];
-uint8_t key;
+volatile uint16_t ADC_value[5];
+volatile uint8_t key;
 float U_set =30.00;
 float I_set =1.00;
 float last_U_set =30.00;
@@ -146,12 +155,92 @@ static void MPU_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static PowerControl power_control;
+static volatile uint32_t power_adc_tick;
+static volatile uint8_t power_adc_seen,power_adc_error;
+static uint8_t power_service_ready;
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *h)
+{
+    if(h==&hadc1){power_adc_tick=HAL_GetTick();power_adc_seen=1;}
+}
+void HAL_ADC_ErrorCallback(ADC_HandleTypeDef *h)
+{
+    if(h==&hadc1){power_adc_error=1;MotorPWM_Abort();HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);}
+}
+static void Power_LogService(uint32_t now)
+{
+    static uint32_t last_snapshot,sequence;
+    static unsigned next=POWER_LOG_RECORDS;
+    static char lines[POWER_LOG_RECORDS][49];
+    if(next==POWER_LOG_RECORDS && (uint32_t)(now-last_snapshot)>=1000U) {
+        last_snapshot=now;
+        PowerLogSnapshot s={0};s.sequence=++sequence;s.tick=now;
+        uint32_t irq=__get_PRIMASK();__disable_irq();
+        for(unsigned i=0;i<3;i++)s.raw[i]=ADC_value[i];
+        s.age=now-power_adc_tick;s.seen=power_adc_seen;s.error=power_adc_error;
+        s.enabled=LM5116_EN && !power_adc_error;
+        __set_PRIMASK(irq);
+        s.valid=s.seen && !s.error && s.age<100U;
+        s.state=(unsigned)power_control.state;s.fault=power_control.fault;
+        s.set_v=U_set;s.set_i=I_set;
+        s.in_v=((s.raw[0]*3300U)>>16)*21.0f/1000.0f;
+        s.out_v=((s.raw[1]*3300U)>>16)*11.0f/1000.0f;
+        s.out_i=(s.raw[2]*3.3f/65535.0f*5.0f-0.6175f)/50.0f/0.005f;
+        s.target_v=power_control.target_v;s.target_i=power_control.target_i;
+        s.dac_v=DAC_set;s.dac_i=DAC_set_I;
+        PowerLog_Format(&s,lines);next=0;
+    }
+    /* Spread a snapshot over nine service calls instead of filling the USB queue. */
+    if(next<POWER_LOG_RECORDS){USB_Log_Event(PowerLog_Tag(next),lines[next]);next++;}
+}
+
+static void Power_Service(void)
+{
+    static uint32_t last;
+    if(!power_service_ready)return;
+    uint32_t now=HAL_GetTick();if((uint32_t)(now-last)<10U)return;last=now;
+    uint32_t irq=__get_PRIMASK();__disable_irq();
+    int pressed=(key==41),motor_arm=(key==31);if(pressed || motor_arm)key=0;
+    uint16_t raw_v=ADC_value[1],raw_i=ADC_value[2];
+    int valid=power_adc_seen && !power_adc_error && (uint32_t)(now-power_adc_tick)<100U;
+    __set_PRIMASK(irq);
+    /* Preserve original conversion pending physical divider/current calibration. */
+    float volts=((raw_v*3300U)>>16)*11.0f/1000.0f;
+    float amps=(raw_i*3.3f/65535.0f*5.0f-0.6175f)/50.0f/0.005f;
+    PowerState before=power_control.state;
+    Power_Update(&power_control,now,POWER_OUTPUT_ENABLED && pressed,U_set,I_set,volts,amps,valid);
+    int active=POWER_OUTPUT_ENABLED && (power_control.state==POWER_STARTING || power_control.state==POWER_ON);
+    /* Disable first; DACs are programmed before any rising enable edge. */
+    if(!active)MotorPWM_Power(0,0);
+    if(!active)HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);
+    DAC_set=power_control.dac_v;DAC_set_I=power_control.dac_i;
+    HAL_StatusTypeDef a=HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set_I));
+    HAL_StatusTypeDef b=HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
+    irq=__get_PRIMASK();__disable_irq();
+    if(a!=HAL_OK || b!=HAL_OK || power_adc_error) {
+        Power_Fault(&power_control,power_adc_error?POWER_ADC_LOST:POWER_DAC_ERROR);active=0;
+    }
+    HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,active?GPIO_PIN_SET:GPIO_PIN_RESET);
+    MotorPWM_Power(active && power_control.state==POWER_ON && valid,motor_arm);
+    LM5116_EN=(uint8_t)active;
+    __set_PRIMASK(irq);
+    if(before!=power_control.state) {
+        char msg[49];snprintf(msg,sizeof(msg),"state=%u fault=%u EN=%u",(unsigned)power_control.state,power_control.fault,LM5116_EN);
+        USB_Log_Event("POWER",msg);
+    }
+    Power_LogService(now);
+}
+
 void LCD_ServiceHook(void)
 {
     static uint32_t last_service;
     uint32_t now = HAL_GetTick();
     if (now != last_service) {
         Comm_UART7_Poll();
+        Power_Service();
+        MotorPWM_LogPoll();
+    Servo_LogPoll();
+        USB_Log_Poll();
         last_service = HAL_GetTick();
     }
 }
@@ -207,7 +296,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Comm_UART7_Init();
 
-	HAL_TIM_Base_Start_IT(&htim13);
+	/* TIM13 starts only while sounding; Tone_ControlInit leaves PD11 quiet. */
 	HAL_TIM_Base_Start_IT(&htim14);
 	
 	LCD_Init();
@@ -215,12 +304,12 @@ int main(void)
 	LCD_Clear(BLUE);
 	LCD_LED(1);
 	LCD_DisplayOn();
-  USB_Log_Event("APP", "LCD_INIT_DONE MAIN PWM_OFF");
+  USB_Log_Event("APP", "LCD_INIT_DONE " ACTUATOR_MODE_TEXT);
 	
 	AT24C02_I2C_Init();
 	
-	 HAL_ADCEx_Calibration_Start(&hadc1,ADC_CALIB_OFFSET,ADC_SINGLE_ENDED);
-	 HAL_ADC_Start_DMA(&hadc1,(uint32_t*)ADC_value,5);
+	 if(HAL_ADCEx_Calibration_Start(&hadc1,ADC_CALIB_OFFSET,ADC_SINGLE_ENDED)!=HAL_OK ||
+        HAL_ADC_Start_DMA(&hadc1,(uint32_t*)ADC_value,5)!=HAL_OK)power_adc_error=1;
 
 	 
 	 
@@ -248,34 +337,37 @@ int main(void)
 	 U_set_count = U_set_int;
 	 __HAL_TIM_SET_COUNTER(&htim3,U_set_count);
 	 
-	 HAL_DAC_Start(&hdac1,DAC_CHANNEL_1);//开启DAC
-	 DAC_set = 1.5f;
-	 DAC_set = U_set/(40.00f/4.300f+1);
-	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-	 
-	 DAC_set_I =1.5f;
-	 DAC_set_I = I_set*0.005f*50.f+0.6175f;
-	 HAL_DAC_Start(&hdac1,DAC_CHANNEL_2);//开启DAC
-	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set_I));
-	 
+    /* Boot never enables the supply. Clear both DACs before enabling service. */
+    HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);
+    if(HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,0)!=HAL_OK ||
+       HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,0)!=HAL_OK ||
+       HAL_DAC_Start(&hdac1,DAC_CHANNEL_1)!=HAL_OK ||
+       HAL_DAC_Start(&hdac1,DAC_CHANNEL_2)!=HAL_OK)Power_Fault(&power_control,POWER_DAC_ERROR);
+    power_service_ready=1;
+
 	 //Car
 #if CAR_ACTUATORS_ENABLED
 	 HAL_TIM_PWM_Start(&htim5,TIM_CHANNEL_3);//舵机
 	 HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_2);//电机
 #endif
-	 HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_1);//编码器
-	 HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_2);//编码器
 	 
 	//LCD_Clear(Black);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  VehicleApp_Init();
+  MotorPWM_Init();
+  Servo_Init();
+  Tone_ControlInit();
   uint32_t ui_tick = HAL_GetTick();
-  USB_Log_Event("APP", "MAIN_LOOP_READY PWM_OFF");
+  USB_Log_Event("APP", "MAIN_LOOP_READY " ACTUATOR_MODE_TEXT);
   while (1)
   {
     Comm_UART7_Poll();
+    Power_Service();
+    MotorPWM_LogPoll();
+    Servo_LogPoll();
     if ((uint32_t)(HAL_GetTick() - ui_tick) < 200U) continue;
     ui_tick = HAL_GetTick();
 		if(CAR_ACTUATORS_ENABLED && key==31)
@@ -303,7 +395,8 @@ int main(void)
 		
 		
         power_grocess2();
-        USB_Log_Event("UI_PROGRESS", "cycle complete PWM_OFF");
+        VehicleDisplay_Poll();
+        USB_Log_Event("UI_PROGRESS", "cycle complete " ACTUATOR_MODE_TEXT);
         static uint32_t seen_errors;
         static HAL_StatusTypeDef seen_status = HAL_OK;
         if (seen_errors != AT24C_ErrorCount() || seen_status != AT24C_LastStatus()) {
@@ -438,59 +531,9 @@ void power_grocess2()
 		{
 			HAL_GPIO_WritePin(GPIOE,GPIO_PIN_9,GPIO_PIN_RESET);
 		}
-		//过流保护	
-		if(I_OUT>I_set+0.5f|U_OUT<0.001)
-		{
-//			tone(2000,20);
-		  LM5116_EN=0;
-			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0,GPIO_PIN_RESET);//LM5116使能引脚
-		}
-		
-		if(POWER_OUTPUT_ENABLED && key ==41)
-		{
-			key = 0;
-			if(LM5116_EN==0)
-			{
-				tone(1500,20);
-				LM5116_EN=1;
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0,GPIO_PIN_SET);//LM5116使能引脚
-				//软启动
-				DAC_set = U_set/9/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(50);
-				DAC_set = U_set/9/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(50);
-				DAC_set = U_set/8/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(50);
-				DAC_set = U_set/7/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(50);
-				DAC_set = U_set/6/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(50);
-				DAC_set = U_set/5/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(50);
-				DAC_set = U_set/4/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(50);
-				DAC_set = U_set/3/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(100);
-				DAC_set = U_set/2/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-				HAL_Delay(100);
-				DAC_set = U_set/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-			}else if (LM5116_EN==1)
-			{
-				tone(1000,20);
-				LM5116_EN=0;
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0,GPIO_PIN_RESET);//LM5116使能引脚
-			}
-		}
+        /* Local supply button/protection/DAC handled by Power_Service, not UI. */
+        snprintf(text,sizeof(text),"PWR:%u F:%u EN:%u",(unsigned)power_control.state,power_control.fault,LM5116_EN);
+        LCD_ShowString(0,24,160,16,16,(uint8_t*)text);
 		//电压电流切换
 		if(key==11)
 		{
@@ -529,7 +572,7 @@ void power_grocess2()
 		}
 		sprintf(text,"M%d ",mode_set);
 		LCD_ShowString(112,0,200,24,24,(uint8_t*)text);
-		switch(mode_set)//根据modeset调整设置电压或电流
+		if(!LM5116_EN) switch(mode_set)//根据modeset调整设置电压或电流
 		{
 			case 0:
 			{
@@ -712,92 +755,7 @@ void power_grocess2()
 		LCD_ShowString(0,48,200,24,24,(uint8_t*)text);
 		sprintf(text,"I_set:%.2f %d",I_set,I_set_mode);
 		LCD_ShowString(0,72,200,24,24,(uint8_t*)text);
-		//记录保存上一次的电压、电流
-		if(U_set!=last_U_set)
-		{
-			last_U_set = U_set;
-			DAC_set = U_set/(40.00f/4.300f+1);
-			
-		}
-		
-		if(I_set!=last_I_set)
-		{
-			last_I_set = I_set;
-			DAC_set_I = I_set*0.005f*50.f+0.6175f;
-			
-		}
-		//分为恒压模式调节和恒流模式调节
-		//PID
-
-//		if(mode_CC==0)//恒压模式
-//		{
-//			U_error = U_OUT-U_set;//计算电压误差
-//			if(U_error>0.005)//启动电压误差PID调节
-//			{
-//				set_pid_target(&volitage_pid,0.005);
-//				volitage_pid.output = PID_realize(&volitage_pid,U_error);
-//				//增量限幅
-//				_Fsat(volitage_pid.output,0.05,0.0009);
-
-//				DAC_set=DAC_set+volitage_pid.output;
-//			}
-//			last_U_error=U_error;
-//		}else if(mode_CC==1)//恒流模式
-//		{
-//			set_pid_target(&current_pid,I_set);
-//			PID_realize(&current_pid,I_OUT);
-//		}
-		//步进调节法
-			if(mode_CC==0)//恒压模式
-			{
-				U_error = U_OUT-U_set;//计算电压误差
-	//			//保留三位小数算法
-	//			uint32_t temp;
-	//			temp=(uint32_t)(U_error*1000);
-	//			U_error=temp/1000.f;
-
-				if(U_error!=last_U_error)
-				{
-					if(U_error>0.001)//启动电压误差PID调节
-					{
-						DAC_set=DAC_set-0.0005;
-					}else if(U_error<-0.001)
-					{
-						DAC_set=DAC_set+0.0005;
-					}
-					last_U_error=U_error;
-					
-					}
-			}else if(mode_CC==1)//恒流模式
-			{
-				I_error = I_OUT-I_set;//计算电流误差
-				if(I_error!=last_I_error)
-				{
-					if(I_error>0.001)//启动电流误差PID调节
-					{
-						DAC_set_I=DAC_set_I-0.0005;
-					}else if(U_error<-0.001)
-					{
-						DAC_set_I=DAC_set_I+0.0005;
-					}
-					last_I_error=I_error;
-				}
-			}
-
-		//输出电压限幅
-		if (!isfinite(DAC_set) || DAC_set < 0.0f) DAC_set = 0.0f;
-		if(DAC_set>3.30000f)
-		{
-			DAC_set=3.30000f;
-		}
-		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
-		//输出电流限幅
-		if (!isfinite(DAC_set_I) || DAC_set_I < 0.0f) DAC_set_I = 0.0f;
-		if(DAC_set_I>3.30000f)
-		{
-			DAC_set_I=3.30000f;
-		}
-		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set_I));
+        /* Active output settings are latched at start; edit only while OFF. */
 		uint32_t dac_temp;
 		dac_temp = HAL_DAC_GetValue(&hdac1,DAC_CHANNEL_1);
 		sprintf(text,"DAC_U:%.2fV",dac_temp*3.3f/4096);
@@ -848,6 +806,8 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  MotorPWM_Abort();
+  HAL_GPIO_WritePin(LM5116_EN_GPIO_Port,LM5116_EN_Pin,GPIO_PIN_RESET);
   while (1)
   {
   }

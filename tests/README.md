@@ -1,5 +1,15 @@
 # 主机测试
 
+当前MCU审核版使用main兼容的`24 42`格式；新增`test_vehicle.c`覆盖解析、编码器和PID，`test_uart7_legacy.c`覆盖真实IRQ/环形缓冲到解析器，`test_vehicle_ports.c`以模拟寄存器分别验证输出禁用及PWM计算/反转归零。模拟输出测试中的宏1不用于Keil工程，也不接硬件。历史A5 5A测试保留，但该协议未接入固件。
+
+新增协议与手柄意图测试（Windows）：
+
+```powershell
+./tests/run_portable_tests.ps1 -Compiler 'C:/Program Files (x86)/Dev-Cpp/MinGW64/bin/gcc.exe'
+```
+
+脚本以`-Werror`构建C测试，并通过`CAR_PROTOCOL_TEST_EXE`让Python对照实际C编解码器。新增测试不打开设备。协议草案和未完成事项见`docs/protocol-v1-draft.md`。
+
 以下测试不会打开MCU、串口或动力外设。
 
 ```sh

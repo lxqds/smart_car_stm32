@@ -1,0 +1,5 @@
+
+Algorithm : SHA256
+Hash      : 5456E69FCC6D37349BFE557E9501C796D79B25550005605BA5D8482528A4CC56
+Path      : C:\Users\27825\Documents\ChatGPT\智能车移植项目\debug_environment\stm32-baseline\MDK-ARM\smart_car_stm32\smart_car_stm32.hex
+

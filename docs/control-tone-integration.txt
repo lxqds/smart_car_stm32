@@ -1,0 +1,17 @@
+联合版Y控制提示音
+
+实现：有效通信中的Y状态由OFF变ON响3声，每声60ms、间隔60ms；ON变OFF响2声，每声70ms、间隔70ms。音调约900Hz。上电OFF不响，同状态控制包不重触发；新状态抢占尚未完成的节律。控制或元数据超时使有效Y状态变OFF，也播放2声。
+提示音与屏幕CTRL/PE3表示的有效Y状态一致，不代表本地KEY3授权或实际电机输出已成功。未授权时收到有效Y ON也会响3声。任何动力控制不等待声音完成。
+
+参考证据：review_sources/rt1064，提交e1cf67d9f1103437528763380c009b04d85c8d2a，project/code/Gpio.c的GPIO_BuzzerEnable：BuzzerSysStart Cut60/Times6，BuzzerOk Cut70/Times4；GPIO_Handle交替开关蜂鸣器。复用60/70ms节律，不照搬不同MCU外设或声调。
+STM32既有hardware/BEEP/tone.c使用PD11与TIM13；Core/Inc/main.h定义BEEP_Pin=GPIO_PIN_11、BEEP_GPIO_Port=GPIOD，tim.c设置TIM13 1MHz计数。复用此硬件路径及原UI tone()调用。
+
+代码：
+hardware/BEEP/tone.c/.h：非阻塞节律、有限时长音调、短临界区同步，计数溢出检查；序列播放时忽略插入的UI短音，结束后恢复UI按键音。显式停止时清TIM13更新标志并将PD11拉低。
+Core/Src/main.c：不在启动时空转TIM13；执行器初始化完成后Tone_ControlInit保持安静。
+Core/Src/stm32h7xx_it.c：SysTick中在速度/舵机任务之后调用Tone_ControlPoll（内部10ms节拍），TIM13仅在更新中断有效时翻转输出。未使用HAL_Delay、忙等或在中断内打印日志。中断开销仍需实板核验，非零开销。
+
+主机验证：tests/test_control_tone.c编译真实tone.c，HAL/寄存器为桩；覆盖三声/两声的启动时刻和音调翻转次数、上电安静、重复包、快速切换、通信失效、UI提示音优先级、uint32回绕、定时器启动失败及无限音显式停止。全部C回归及24项Python测试通过。测试证明软件状态/定时逻辑，不证明实物音量、音调或控制中断时序。
+本轮未访问设备、未烧录、未实际发声；速度PI、R挡、舵机20us步进、原PWM上限及常驻上位机配置不变。板上仍为此前舵机独立固件，新联合版尚需审核及烧录后验证。
+
+Keil完整编译通过：0错误、3警告，日志debug_environment/control-tone-keil.txt。新HEX SHA256：E1ED977FB77D99E3B2612DC13BA81E6180FB1ABAB045AA26E7D54B593D8C1AC4。未烧录。

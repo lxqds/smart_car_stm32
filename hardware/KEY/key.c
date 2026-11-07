@@ -3,7 +3,7 @@ uint8_t B1[5];
 uint8_t release[5];
 uint16_t down_count[5];
 uint8_t last_B1[5];
-void key_scan(uint8_t *key_value)
+void key_scan(volatile uint8_t *key_value)
 {
 	B1[0] = HAL_GPIO_ReadPin(GPIOD,GPIO_PIN_12);
 	B1[1] = HAL_GPIO_ReadPin(GPIOD,GPIO_PIN_13);

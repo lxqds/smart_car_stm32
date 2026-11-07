@@ -1,0 +1,37 @@
+舵机中位与小范围转向接入（2026-11-07）
+
+状态：主工程源码已接好，完整纯主机回归和Keil编译通过。未烧录、未复位、未访问串口/DAP/RK3576、未输出实际舵机脉冲。本轮不做实机中位或限位结论。用户已确认信号PA2、沿用原舵机供电接口、电机动力接线断开；未测量接口电压。
+
+实现
+Core/Inc/actuator_mode.h新增SERVO_BENCH_MODE=1，选择本次舵机单独调试；motor_pwm.h据此令MOTOR_PWM_COMMISSIONING=0。速度PI源码和原测试保留，当前固件不初始化/启动TIM2、不响应电机输出请求。另一VehicleCore电机输出门仍为0。不能同时启用两类输出；servo_control.c有编译期互斥检查。
+新增Core/Inc/servo_control.h、Core/Src/servo_control.c。TIM5_CH3/PA2按实际APB1计时器时钟推导PSC，计时频率1MHz、ARR19999、50Hz、CCR单位微秒。当前240MHz时PSC239。通道初始化为CCR0，上电不自动输出中位；HAL初始化/启动失败保持零输出。
+直接调用既有RT1064_ServoCorrect()，源自reference/rt1064_0a878262/project/code/Servo.c的SERVO_SetPwmValueCorrect串口实际路径：out=3000-command-(middle-1500)，旧默认middle1500/left1140/right2000，先按旧逻辑限幅，再收窄到1450..1550us。没有误用另一个SERVO_AngleControl的±38度映射。
+旧参考值是源码默认值，不代表已恢复旧车Flash中的真实校准值，也不等于本车实际机械限位。例：串口1500→1500us；1470→1530us；1530→1470us。当前手柄名义角度±15、K=3，对应串口1455..1545、输出1545..1455。屏幕指令角度不代表实测前轮角度。
+第一次使能从1500us开始，以后每20ms最多变化1us，即50us/s，双向限速；只要目标仍有效就保持目标位置。
+
+授权与保护
+原KEY4/PD15电源功能及屏幕保留。Power_Service继续调用MotorPWM_Power，由当前舵机模式将电源健康和KEY3授权事件转交Servo_Power；MotorPWM_Abort转交Servo_Abort，覆盖现有ADC、Error_Handler和CPU异常入口。速度环不会因KEY3授权而启动。
+须电源ON且健康、指令及Y元数据新鲜、速度目标严格为0、舵机指令1500、Y关闭时，短按KEY3/PD14才授权。授权本身仍无脉冲。随后摇杆保持归中按Y，首次使能必须仍收到1500才输出中位。未授权按Y无效；非零油门目标撤销舵机许可，避免误把油门混入本轮调试。
+Y关闭、电源关闭/健康租约达到50ms、控制包过期200ms、Y元数据过期、原始控制到达时间间隔达到200ms、错误采样周期和输入异常等均清CCR并撤销许可。控制周期20ms。电源健康回调在更新租约前先检查旧租约，不能用迟到更新掩盖到期。重连不自动恢复，须归中/Y关闭重新KEY3授权。
+停机动作是停止控制脉冲，不强制回中，也不切断独立舵机电源；具体失去脉冲后的保持/松弛行为由舵机硬件决定，待实测。
+
+显示与日志
+保留原电源UI、指令速度/挡位/Y/名义舵角；第四行显示SERVO实际请求脉宽、A授权、ON输出状态、STOP原因和MOTOR_OFF。
+SERVO_STATE：ready/arm/on/stop；SERVO_US：cmd/target/out及MOTOR_OFF。0表示没有脉冲，不是0度。STOP1电源、2通信、3Y关闭、4输入/非零油门/首次未归中、6调度、7异常、8外设初始化失败。
+USB BOOT/ALIVE按actuator_mode显示SERVO_ONLY MOTOR_OFF。队列容量、64字节分包和dropped计数保留，不宣称无丢日志。
+
+测试与编译
+完整run_portable_tests.ps1通过。新增test_servo_control.c使用实际servo_control.c和RT1064参考映射，验证50Hz计时器设置、boot零脉冲、KEY3/Y归中顺序、方向修正、1450..1550夹紧、双向斜坡、Y停机、电源OFF和过期租约、通信/元数据失效、原始到达间隔、越界/NaN/非零油门、调度异常、uint32回绕、初始化失败和完整日志字段。
+新增test_motor_disabled.c执行当前模式的实际motor_pwm.c/vehicle_ports.c，证明TIM2不初始化/启动/输出，Power/Abort转发舵机。原速度PI回归以SERVO_BENCH_MODE=0继续测试，未删除。其余协议、USB真实队列格式、编码器、电源、UART7和Python10+3+3项均通过。
+Keil主工程：0错误、3既有警告（AT24C02 u8/u16重复、LCD指针符号）。Code73138、RO7718、RW296、ZI18336。
+HEX SHA256：799F0B9B56872E2F8C10DE92CCB4649DF388FA173E6BC30D925E0A4142CC9251。
+证据目录：docs/validation/servo-center-20261107/（host-tests.txt、keil.txt、hex-sha256.txt）。未提交Git，未覆盖旧审核记录。本版本未烧录，板上仍是上一版速度环固件；不能将当前电脑编译模式当作板上电机已禁用的证据。
+
+待后续授权烧录后的步骤
+保持电机动力物理断开；先核对启动MOTOR_OFF、SERVO out0。KEY4开启电源后KEY3归中授权；保持RT/LT松开，左摇杆归中按Y，确认1500us时机械中位且无顶死；再缓慢左右拨动检查方向与小幅响应。若中位偏移或方向相反先关Y记录，不直接扩大到旧宽范围。独立确认供电、方向、中位与机构余量后再决定校准值和扩大范围。
+
+用户授权烧录后第1次尝试：HEX哈希一致；OpenOCD初始化失败，unable to find a matching CMSIS-DAP device，退出1，尚未擦写。板上仍为旧速度环固件。RK手柄/串口节点存在，原发送器已结束；为避免将舵机操作发给旧固件，尚未恢复发送。
+
+用户重连后第2次烧录成功：Programming Finished/Verified OK/Resetting Target，退出0；HEX SHA256为799F0B9B56872E2F8C10DE92CCB4649DF388FA173E6BC30D925E0A4142CC9251，更新此前未烧录状态。USB日志采集600秒启动，RK发送器600秒启动；启动时手柄输入节点未枚举，发送器发送零目标等待设备。MCU RX FRESH、SERVO_ONLY MOTOR_OFF、ready1 arm0 on0 out0；电源st0 en0，串口和解析错误0，dropped685。此时尚未使能舵机，未验证物理中位/方向。
+
+中位首测：用户确认按Y后中位正常且无异常。USB在165681~166281ms确认ready1 arm1 on1 stop0，cmd=target=out=1500，MOTOR_OFF、RX FRESH；此为软件脉宽请求与用户机械观察相符，未示波器测量，也未量化前轮零角偏差。

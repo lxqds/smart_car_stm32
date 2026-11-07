@@ -1,0 +1,7 @@
+联合版舵机外设诊断（2026-11-08）
+新增Core/Src/servo_control.c每秒只读寄存器日志，未改变控制/互锁/方向/限幅。主机回归全部通过（硬件读回分支仅目标平台编译，主机测试不验证硬件），Keil0错误3警告。测试日志combined-servo-hwdiag-tests.txt，编译日志combined-servo-hwdiag-keil.txt。
+HEX SHA256 9F37A246CC4722E788061BBD390C655110D8D031187EF74FCC2DCD35C0BE7013；003607烧录成功，OpenOCD Verified OK。证据flash-combined-hwdiag-20261108-003607.stderr.txt。可用独立版保留在Git51c7fbe检查点。
+新USB记录combined-servo-hwdiag-live-20261108.txt。tick47086：CR1=1(CEN)、CCER=0x100(CC3E)、PSC239、ARR19999、CCR3=0、CNT9070->9071、CCMR2=0x68(PWM1/preload)、SMCR0、GPIOA MODER=AABAFFE9(PA2 AF)、AFRL=0x210(PA2 AF2)。启动电源OFF、两侧未授权、输出零。尚未验证Y开启后的CCR/引脚物理输出。不能据此声称舵机故障已修复。
+本轮实测：用户确认联合诊断版有实际回中动作，左右正常、平稳且回中。USB实际CCR3读回tick123092=1268、129092=1640，之后1500；说明联合模式可以驱动舵机。本次只新增只读日志，未修正已证实的根因；重新烧录/复位及运行时序变化均未排除，不能宣称旧故障已根治。
+用户回复已关Y，但随后tick150570仍CTRL:ON、舵机arm1/on1/stop0、CCR3=1500，电机CCR0；RK最新enabled=true。本轮不记为Y关闭通过。RK曾出现非零目标后回0，不能将整个过程描述为严格零油门。等待用户确认关闭，常驻服务仍保留。
+结束状态核验：用户再次确认屏幕CTRL:OFF。USB tick180281及181231确认CTRL:OFF；tick181061电机arm0/run0/req20k0/CCR0；tick181092舵机arm0/on0/out0且实际TIM5 CCR3=0。板上电源仍ON（en1），控制输出归零并不等同电源断开。本轮联合版转向/回中及关闭后的零输出已验证；此前不转的根因仍未确定。

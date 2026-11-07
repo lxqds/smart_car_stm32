@@ -1,0 +1,14 @@
+舵机独立版与联合版对比核查（2026-11-08）
+
+范围：源码、已有部署记录与USB日志；本轮未烧录、未复位、未启动发送，未修改业务代码。
+版本证据：已成功实测独立版记录docs/servo-slew20-20261107.txt，HEX SHA256 884832FE9920013884C087FA7AFD7F76B16A7088D40033B0D4D4A32D03D9C098。联合版部署记录docs/control-alert-and-connection-20261108.txt，HEX SHA256 76069182F13638EDFBF46D650D6936D856341CC4EBEF1783A405888C4D948638。
+限制：舵机及联合驱动当前为未提交文件；本次未找到成功独立版完整源码快照，不能声称两个部署版本已完成逐字节源码diff。依据历史记录和当前代码核对差异。
+
+相同参数：TIM5_CH3/PA2(AF2)，50Hz，PSC按1MHz计数配置，ARR19999，中位1500us，输入1140..2000，经原方向映射输出1000..1860，步进20us/20ms。手柄方向在上位机反向。tim.c及main.h相对当前HEAD无工作区修改。
+联合变化：模式1改2；电机TIM2/PA1开启；舵机允许非零速度；KEY3联合授权；电机故障撤销舵机；MotorPWM_Tick调用Servo_Tick，后者20ms门控。蜂鸣器PD11/TIM13，无直接TIM5写入。
+检查到的疑点排除：VehiclePorts_Disable只清TIM2_CH2，不清TIM5；旧main PWM写入受CAR_ACTUATORS_ENABLED关闭；Comm_UART7_Init确实把PA1/PA2设低，但它在main.c:297执行，Servo_Init在361执行，后者MX_TIM5_Init重新配置PA2，未查到循环重复调用该UART初始化。
+
+本轮日志debug_environment/combined-servo-only-live-20261108.txt：790910..796310期间speed目标0，SERVO arm1/on1/stop0，软件out记录1540、1740、1840、1140及回1500。用户确认屏幕变但摇臂不动。没有本轮联锁停止证据，因此上轮reason9不能解释本轮故障。
+Servo_LogPoll的out来自servo.pulse内存，不是TIM5_CCR3读回或PA2波形。tests/test_actuators_combined.c使用空MX_TIM5_Init和模拟HAL_TIM_PWM_Start，不能验证GPIO复用、外设时钟、真实计数器和通道输出。不能以这些测试排除外设运行问题，更不能据此断言接线损坏。
+建议下一步：补充只读诊断TIM5 CR1/CEN、CCER/CC3E、CCMR2、PSC、ARR、CCR3、跨时刻CNT，GPIOA MODER/AFRL与RCC时钟使能；和软件out同时记录。寄存器正常仍不能证明插头波形，随后才针对信号连接测量。补日志需编译并经用户授权烧录；本轮未执行。
+再次复现记录：用户确认屏幕变化、摇臂仍不动、已关Y。combined-servo-only-live-20261108.txt tick1143510软件out1860，1144110 out1260，随后回中；tick1149101电机reason3（Y关闭），舵机out0；tick1172389屏幕CTRL:OFF，电机CCR0，舵机arm0/on0/out0。本轮动作并非仅小幅：命令实际触及1140/2000阈值。仍无PA2波形或TIM5运行寄存器读回证据，不能宣称外设输出正常或硬件损坏。停止重复摇杆验证。

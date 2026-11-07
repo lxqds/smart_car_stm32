@@ -1,0 +1,12 @@
+舵机独立重建版（2026-11-08）
+用户授权：独立副本重建、编译测试后烧录。此为重建版，不是原884832FE固件。
+副本：debug_environment/stm32-servo-rebuild-20261108；当前联合工程原样保留。
+唯一模式修改：Core/Inc/actuator_mode.h默认SERVO_BENCH_MODE由2改1；保留当前其他代码，包括通知逻辑。PA2/TIM5_CH3 50Hz、中位1500、原阈值、20us/20ms；电机输出禁用。
+纯主机test_servo_control、test_motor_disabled均PASS。Keil全量重编译0错误3警告；未运行全部回归。编译日志debug_environment/servo-rebuild-20261108-keil.txt。
+重建HEX SHA256：49C99D32D37E7BD77F05C1174130F3C32757F7D82F7D94A129E6278DDCC09CE5。
+联合版HEX仍为76069182F13638EDFBF46D650D6936D856341CC4EBEF1783A405888C4D948638。
+首次下载003019失败：unable to find a matching CMSIS-DAP device，OpenOCD init failed，未进入擦写。证据debug_environment/flash-servo-rebuild-20261108-003019.stderr.txt。RK常驻发送已停止，USB旧采集已到期结束。等待DAP重连再继续同一HEX；未宣称已回退或硬件通过。
+烧录更新（2026-11-08 00:31）：DAP重连后同一HEX烧录成功，OpenOCD退出0、Programming Finished、Verified OK、Resetting Target。日志debug_environment/flash-servo-rebuild-20261108-003106.stderr.txt。
+USB新采集debug_environment/servo-independent-rebuild-live-20261108.txt确认ALIVE SERVO_ONLY MOTOR_OFF，舵机ready1/arm0/on0/out0；最新电源已ON约12.034V，CTRL:OFF、目标速度0、PWM命令1500、RX FRESH。RK常驻服务已恢复active PID2735413。尚未完成重建版实物转向验证。当前为重建固件而非原884832FE版本。
+实物对照结果：用户确认Y开启后有实际回中动作、无异常；左右小幅转向方向正确且能回中，随后已关闭Y。USB tick98675及后续确认arm0/on0/stop3/out0，CTRL:OFF。此为重建版实际转向通过，不是原历史HEX复验。当前板上保留49C99D32重建版，电机软件禁用；未刷回联合版。
+联合版与本副本源文件仅默认模式2/1的预期差异（本副本创建后未修改其他业务代码），结果支持优先排查模式相关执行路径，但单次回刷同时包含复位，不能仅凭对照断言具体寄存器或互锁是根因。当前不再重复要求用户检查已能工作的舵机接线。

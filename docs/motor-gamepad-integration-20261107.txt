@@ -1,0 +1,65 @@
+主工程手柄开环电机PWM与保护联锁（2026-11-07）
+
+范围与版本
+在原分支codex/uart7-main-integration及同一MDK主工程修改，保留已有未提交改动和此前审查记录。没有创建新分支/独立固件工程，没有提交或推送。本轮未烧录、未接串口/DAP、未运行电机或舵机；当前板内仍是上一轮编码器估算日志固件。
+新HEX SHA256：5456E69FCC6D37349BFE557E9501C796D79B25550005605BA5D8482528A4CC56。
+
+行为
+沿用24 42速度指令及现有Y元数据，不增加协议命令、不把串口负载改成占空比。仅当前主工程调试模式把非负速度目标0~5映射到0~50千分比（0~5%）电机占空比，这是开环映射，不代表实际达到指令车速。速度1对应1%，5对应5%；挡位仍会限制上位机可发出的速度，因此低挡最大PWM很小，不能保证电机起转。
+MOTOR_PWM_COMMISSIONING=1；旧CAR_ACTUATORS_ENABLED=0、闭环VEHICLE_OUTPUTS_ALLOWED=0、POWER_OUTPUT_ENABLED=1。不能再用旧两开关0推断所有电机输出都禁用：本次新增独立电机模式，需本地授权后才可能输出。
+PWM沿用RT参考5kHz，按当前HCLK/PCLK1和TIMPRE计算TIM2输入时钟，配置1MHz计数基准；需上板测频率和确认驱动器兼容。PA1/TIM2_CH2为PWM，PA0方向置高作为暂定正向，仅允许正目标；负值/非有限/>5直接撤销许可。不自动做反转试验。
+舵机：vehicle_ports.c中无TIM5初始化、启动、停止或CCR写入；兼容接口忽略servo_us，原主程序旧电机/舵机代码仍被编译开关封锁。保持原屏幕和舵机指令显示，不产生舵机PWM。后续若恢复舵机必须单独实现和审核。
+
+授权与操作流程（下载后才生效，本轮不能照此认为板内已更新）
+1. 原PD15电源按键功能不变，供电默认关闭，按原流程开启，等待PWR ON且ADC有效。
+2. RK保持发送原协议，Y为OFF、速度目标为0；按下并释放PD14/KEY3（key=31，原电机相关按键）申请一次本地授权。非零目标、Y已ON、通信不新鲜、电源未ON、初始化失败或车辆非配置故障时不接受。屏幕CTRL和PE3仍是手柄状态，不等于本地电机许可。
+3. 按Y开启，再用RT提升速度目标，即提升开环PWM；上升每10ms最多5千分比（0.5个百分点），下降立即跟随目标，零目标立即清PWM。松RT后上位机原有滑行减速仍在，因此松RT不等于MCU立即零目标；明确停车用Y关闭或电源关闭。
+4. 从首次非零目标起最多2000ms，期间目标回零不会重置期限。到期清PWM并撤销许可，重新运行必须Y OFF、目标0并再次本地按键授权。Y ON但尚未给油门不消耗这2秒；Y再OFF即撤销许可。
+5. 不能把占空比不够起转当作允许持续加大；首版上限固定5%，硬件测试前确认驱动器、电流和架空条件。
+
+保护与边界
+- 控制包保持既有200ms新鲜度，显示/使能元数据500ms；丢包、失联、Y OFF、越界、时序异常、车辆非配置故障撤销许可。额外检查已采纳包的原始到达时间间隔，避免新包在采样前跨超时续许可。
+- 电源OFF/STARTING/FAULT、ADC异常、DAC失败使电机停止；电源恢复不自动授权。电源服务健康状态超过50ms未刷新，SysTick电机路径撤销许可；电源服务不在主循环运行时仍有此租约检查，前提是SysTick正常运行。
+- 每10ms评估并写电机；联锁判断和端口写入在临界区完成，避免ADC错误中断清零后旧写入再次恢复输出。
+- ADC错误、Error_Handler及HardFault/MemManage/BusFault/UsageFault路径增加PWM清零及电源EN关闭（ADC错误由原回调同时处理EN）。这不是独立硬件急停，也不能覆盖CPU完全死锁/无法执行异常处理的情况；未新增看门狗。
+- 原速度PID的校准门保持关闭，不为开环试转伪造校准参数。堵转/电机电流/过温/硬件FAULT保护尚未完整实现，5%与2秒不是无条件安全保证。电源已有过流不能替代驱动器保护。
+
+文件
+Core/Inc/motor_pwm.h：模式、5kHz、5%和2秒限制。
+Core/Inc/motor_pwm_core.h：可主机测试的许可、映射、斜率、期限、失效状态机。
+Core/Src/motor_pwm.c：实际RCC时钟推导、手柄视图读取、电源健康更新、10ms调度、日志。
+Core/Src/vehicle_ports.c及头文件：电机单独初始化/输出/清零/寄存器读取，舵机完全隔离。
+Core/Src/main.c：保留电源服务和屏幕，接key31与电源联锁；Core/Src/stm32h7xx_it.c：SysTick及故障停止。
+Core/Src/vehicle_app.c、USB_Log/usb_log.c：全局PWM_OFF文本改为PID_OFF，车辆闭环输出改名VEHICLE_PID_OUTPUT，避免将闭环0误报为实际电机0。
+MDK-ARM/smart_car_stm32.uvprojx：同一主工程编入motor_pwm.c。
+
+日志
+MOTOR_PWM ready/arm/run/req（千分比请求值），MOTOR_GUARD reason/pwr/hz，MOTOR_CLOCK timer_hz，MOTOR_REG ccr/arr；CCR/(ARR+1)为寄存器占空比，预装载生效及物理波形仍需仪器验证。req初始换方向时可与CCR暂时不同。
+停止原因：0初始/已授权，1电源，2通信，3Y关闭，4范围，5运行期限，6采样周期，7故障，8端口初始化。电源OFF持续调用可覆盖此前原因，因此不是永久故障追踪记录。
+USB队列仍有限并保留dropped，日志不保证无丢弃；显示CTRL与实体LED不作为动力安全指示。
+
+验证
+完整纯主机回归通过。新增实际motor_pwm.c+vehicle_ports.c组合测试：只能调用TIM2，不触碰TIM5；零目标Y OFF本地授权；远端Y不能独立授权；缓升/5%上限/零输出；Y关闭与恢复不重启；供电丢失/服务超时/恢复；包断流和跨期限新包；范围/NaN/时序/车辆故障；2秒到期和uint32回绕；APB分频及TIMPRE；PWM初始化失败；底层直接调用仍限制到5%。
+实际Power_Service抽取测试补充：key31只申请许可，PD15关闭/重新启动电源仍正常，STARTING不授予动力条件，重启电源不重复申请本地授权；原ADC/DAC错误测试继续通过。
+Keil：0错误、3原有警告（AT24C02 u8/u16重复typedef，LCD char指针符号）。git diff --check通过。
+无硬件波形/功率/电机运行验证。新HEX未烧录。后续先审查这版主工程，再按授权下载和无电机波形验证，不能把此前USB编码器测试结果当成本版电机保护已硬件通过。
+
+用户授权下载后的首次尝试：核对HEX SHA256仍为5456E69FCC6D37349BFE557E9501C796D79B25550005605BA5D8482528A4CC56；OpenOCD退出1，unable to find a matching CMSIS-DAP device，初始化阶段失败，未开始擦写。未进行本版动力测试。
+
+DAP重连后第二次下载：USB阶段已恢复，能读取CMSIS-DAP FW2.1.0并初始化SWD；随后cannot read IDR，无法读取MCU调试标识。退出1，未开始擦写。与第一次USB匹配失败不同，当前故障位于DAP到目标的SWD访问阶段，原因尚未确定。
+
+SWD重新插紧后第三次烧录成功：Programming Finished / Verified OK / Resetting Target，退出0，HEX哈希与本报告一致。COM8只读启动日志确认MOTOR_PWM ready=1 arm=0 run=0 req=0；MOTOR_REG ccr=0 arr=199；MOTOR_CLOCK timer_hz=240000000（配置5kHz，未测物理波形）；PWR_STATE st=0 fault=0 en=0；控制rx=0、屏幕RX WAIT。原始日志见flash-success.txt及boot-usb.txt。该记录只证明安装/启动和零占空比寄存器状态，未授权或试转电机、未做舵机输出测试。ALIVE dropped=346，不能宣称日志无丢失。当前未收到RK控制包，后续先恢复发送并确认零目标/Y OFF，再按计划测试。
+
+RK发送恢复：SSH cat@192.168.31.15；既有目录/home/cat/vehicle_gamepad.sA3j4o，手柄Zikway及串口by-id正常，启动前无host_control发送进程。发现旧发送端Y OFF仅发一次零控制，无法满足本地授权要求持续新鲜零目标。已在本地及RK对racing_control.packet作最小修改：禁用时每次发送零速度/中位控制和enabled=0元数据，协议保持不变；远端原文件备份为racing_control.py.before-neutral-20261107-214234。本地3项赛车测试通过，新增禁用/断线零目标心跳测试；RK直接编码断言通过。没有修改或重烧MCU。发送进程启动600秒，日志motor-gamepad-live1.txt，启动状态connected/enabled=false/axes0/gear1。MCU168140至168640ms rx335至345，speed0/servo1500，bad0/unsupported0，屏幕RX FRESH GEAR1 CTRL OFF，motor arm0 run0 req0 ccr0 arr199；电源st0 en0。尚未进行电机授权或试转。
+
+无动力负载供电检查：用户明确确认负载断开并按原电源键。USB记录212298ms POWER state=2 fault=0 EN=1；213108ms状态ON，设定12V/2A，采样输出12.034V/0.047A，ADC正常。212771ms MOTOR ready1 arm0 run0 req0，pwr1，CCR0/ARR199；RX FRESH、CTRL OFF、目标0，控制包计数持续增加。电源按键开启未自动授权电机，寄存器零输出通过；未测物理波形、未连接电机负载。证据power-on-unarmed-snapshot.txt。
+
+本地授权尝试未通过：用户回复已按KEY3且未按Y/RT；USB252448ms POWER state=0 fault=0 EN=0，电机整个已记录窗口arm=0/run=0/req=0/CCR=0。源码key_scan映射PD14短按=31，PD15短按=41；Power_Service只消费41切换电源、31申请电机许可。观测与电源切换路径吻合，但未记录原始按键事件，不断言用户按错或硬件接线错误。暂停输出测试，待确认实体按键身份。
+
+用户正确依次按KEY4/PD15与KEY3/PD14后，491621ms日志MOTOR_PWM ready=1 arm=1 run=0 req=0、pwr=1、CCR=0/ARR199；PWR state2 fault0 EN1，采样12.034V/0.046A；RX FRESH GEAR1 CTRL OFF、目标0。本地授权成功且仍零PWM的寄存器检查通过。动力负载按用户确认保持断开，尚未做非零PWM和电机试转。证据armed-zero-snapshot.txt。
+
+无负载RT与期限测试：用户确认1挡、Y ON、RT保持约4秒后松开、Y OFF。525771ms MOTOR arm1 run1 req5，CCR1/ARR199，对应寄存器占空比0.5%；526922ms arm0 run0 req0、CCR0，停止原因5（运行期限），同时屏幕速度目标仍500mm/s、CTRL ON；530127ms目标归零，531279ms CTRL OFF。停止后保持未授权和CCR0，电源仍ON。证据支持非零PWM寄存器响应以及期限撤销许可且不会随仍非零目标重启；USB日志采样稀疏，不能据此宣称实测停止延时恰好2000ms，也未测PA1波形/驱动输出或电机运行。证据pwm-timeout-snapshot.txt。
+
+Y停车首轮不具备验收前提：用户回复已完成，但535388至631039ms已记录Motor始终arm0/run0/CCR0，reason仍5；605235ms屏幕Y ON、610495msOFF，期间速度记录均0。RK日志显示33818579至33820359ms RT动作发生在enabled=false，33824228ms enabled=true时油门已0，33829066ms关闭。不能记为非零PWM被Y停车通过，也不据此认定固件停车失败。下一轮改为分步确认本地授权，再确认Y使能，最后测试油门/停车。
+
+单独KEY3重试确认成功：727292ms arm1/run0/CCR0，目标0、Y OFF、电源ON。为避免600秒发送期限中途结束，停止已确认的RK python PID2096574并确认无其他发送器后启动第二轮600秒发送，日志motor-gamepad-live2.txt。757970ms恢复RX FRESH、目标0/Y OFF后，motor arm0/run0/CCR0，reason2（通信）；可确认等待运行状态下断流撤销许可且恢复通信未自动授权。不是非零电机运行中断线停车验收。该重启为助手主动操作，用户需重新本地授权，不应归咎于用户按键。

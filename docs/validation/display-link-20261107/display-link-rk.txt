@@ -1,0 +1,8 @@
+{"speed_mm_s": 0.0, "angle_command": 0.0, "servo_pwm": 1500, "hex": "2442010b00000000dc0553", "rate_hz": 10, "mode": "send", "mcu_confirmed": false}
+{"sent": 20, "final_neutral_sent": true, "mcu_confirmed": false}
+{"speed_mm_s": 250.0, "angle_command": 10.0, "servo_pwm": 1470, "hex": "2442010b0000803ebe05f3", "rate_hz": 10, "mode": "send", "mcu_confirmed": false}
+{"sent": 80, "final_neutral_sent": true, "mcu_confirmed": false}
+{"speed_mm_s": -150.0, "angle_command": -10.0, "servo_pwm": 1530, "hex": "2442010b9a9919befa057b", "rate_hz": 10, "mode": "send", "mcu_confirmed": false}
+{"sent": 80, "final_neutral_sent": true, "mcu_confirmed": false}
+{"speed_mm_s": 0.0, "angle_command": 0.0, "servo_pwm": 1500, "hex": "2442010b00000000dc0553", "rate_hz": 10, "mode": "send", "mcu_confirmed": false}
+{"sent": 20, "final_neutral_sent": true, "mcu_confirmed": false}

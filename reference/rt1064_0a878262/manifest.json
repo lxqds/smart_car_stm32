@@ -1,0 +1,68 @@
+{
+  "repository": "https://github.com/lxqds/rt1064.git",
+  "commit": "0a87826241f6ceab5c7228bdc8808db77a8519c5",
+  "files": [
+    {
+      "path": "project/code/Motor.c",
+      "sha256": "3f4a0ce8a99ce9937f51129b9c47e52a1da1d5c9889bc64bdf7f2b3d586bdfc3"
+    },
+    {
+      "path": "project/code/Motor.h",
+      "sha256": "b0574f30bfebe53c21949176b7e2caa206a7b4abd33268414c81cdca9b1ee32d"
+    },
+    {
+      "path": "project/code/Encoder.c",
+      "sha256": "7ced2a4787e18b4733ac0f77edca455181d478d810fbc0430b0f46aa7142351c"
+    },
+    {
+      "path": "project/code/Encoder.h",
+      "sha256": "61d5ead52eae8e82989935dd86180ed917f24829b38510ca89eb4936d45600f2"
+    },
+    {
+      "path": "project/code/Servo.c",
+      "sha256": "19bc569d1d0af74f23c50e9c570c34e9fbd63e7e53fce2a429a373a15ac833a9"
+    },
+    {
+      "path": "project/code/Servo.h",
+      "sha256": "654621afc0ae1bee9d050cd6b7241651d7eaeb7cf8057ff82aedadfb0e39024c"
+    },
+    {
+      "path": "project/code/Pid.c",
+      "sha256": "12961c39bd1b68ec34ab96cdedd8d98cbb5d6fbb901d9b829e2fc3b14127d87c"
+    },
+    {
+      "path": "project/code/Pid.h",
+      "sha256": "318274c4d07fe638ed15386793c96e873945b5b503542eba0b8fe0ad93ce680f"
+    },
+    {
+      "path": "project/code/Flash.c",
+      "sha256": "c69fae4b163bf804ac57e3a1a74327fb17dbecb3f5ba395b328ec0328ad64de3"
+    },
+    {
+      "path": "project/code/Timer.c",
+      "sha256": "83ca70d0b8b69e1cb50d54d0b4b149b6a7b1a7e86fc719bd2c49acd5d98715d9"
+    },
+    {
+      "path": "project/user/src/main.c",
+      "sha256": "cc3ae993874cf0406badeceebde6ba55e62255f0a80ac30862d3c03b86ae6462"
+    },
+    {
+      "path": "project/user/src/isr.c",
+      "sha256": "0f87d22019dd5b64e36280540a7ba4d2eddd260393ed237bbc058aaae6acc36f"
+    },
+    {
+      "path": "libraries/zf_driver/zf_driver_pwm.h",
+      "sha256": "33bc9e630767cc23a5a284136abef54190298705374b8b2407e8ffe44f1236dd"
+    },
+    {
+      "path": "libraries/zf_driver/zf_driver_pwm.c",
+      "sha256": "765a14f86bc2e1168d9cd133c9c3f01c2bbdc0d7da5186e8fdf7f7ac3933a733"
+    }
+  ],
+  "host_main_config": {
+    "repository": "https://github.com/lxqds/smart_car_js.git",
+    "commit": "1adb020a7fc0e34d2aba955a1c4ac64900779348",
+    "path": "configs/control.json",
+    "sha256": "27898086fc8d0bacd6b44135b5906ad079d4277730924c882c57c2450257eeda"
+  }
+}
