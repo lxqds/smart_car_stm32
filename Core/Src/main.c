@@ -18,6 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "comm_uart7.h"
+#include "usb_log.h"
+/* Keep disabled until separately validated with the user. */
+#define CAR_ACTUATORS_ENABLED 0
+#define POWER_OUTPUT_ENABLED 0
 #include "adc.h"
 #include "dac.h"
 #include "dma.h"
@@ -140,6 +145,16 @@ static void MPU_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void LCD_ServiceHook(void)
+{
+    static uint32_t last_service;
+    uint32_t now = HAL_GetTick();
+    if (now != last_service) {
+        last_service = now;
+        Comm_UART7_Poll();
+    }
+}
+
 
 /* USER CODE END 0 */
 
@@ -184,9 +199,12 @@ int main(void)
   MX_TIM3_Init();
   MX_DAC1_Init();
   MX_TIM1_Init();
+#if CAR_ACTUATORS_ENABLED
   MX_TIM2_Init();
   MX_TIM5_Init();
+#endif
   /* USER CODE BEGIN 2 */
+  Comm_UART7_Init();
 
 	HAL_TIM_Base_Start_IT(&htim13);
 	HAL_TIM_Base_Start_IT(&htim14);
@@ -196,6 +214,7 @@ int main(void)
 	LCD_Clear(BLUE);
 	LCD_LED(1);
 	LCD_DisplayOn();
+  USB_Log_Event("APP", "LCD_INIT_DONE MAIN PWM_OFF");
 	
 	AT24C02_I2C_Init();
 	
@@ -250,8 +269,10 @@ int main(void)
 	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_set_I/3.30f*4096);
 	 
 	 //Car
+#if CAR_ACTUATORS_ENABLED
 	 HAL_TIM_PWM_Start(&htim5,TIM_CHANNEL_3);//舵机
 	 HAL_TIM_PWM_Start(&htim2,TIM_CHANNEL_2);//电机
+#endif
 	 HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_1);//编码器
 	 HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_2);//编码器
 	 
@@ -260,9 +281,14 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t ui_tick = HAL_GetTick();
+  USB_Log_Event("APP", "MAIN_LOOP_READY PWM_OFF");
   while (1)
   {
-		if(key==31)
+    Comm_UART7_Poll();
+    if ((uint32_t)(HAL_GetTick() - ui_tick) < 200U) continue;
+    ui_tick = HAL_GetTick();
+		if(CAR_ACTUATORS_ENABLED && key==31)
 		{
 			key=0;
 			HAL_GPIO_WritePin(GPIOA,GPIO_PIN_0,GPIO_PIN_SET);
@@ -274,6 +300,7 @@ int main(void)
 		sprintf(text,"m_count=%d",motor_count);
 		LCD_ShowString(160,144,200,24,24,(uint8_t*)text);
 		
+#if CAR_ACTUATORS_ENABLED
 		motor_duty= U_set_float*20000;
 		if(motor_duty>10000)
 		{
@@ -282,6 +309,7 @@ int main(void)
 		__HAL_TIM_SET_COMPARE(&htim2,TIM_CHANNEL_2,motor_duty);
 		servo_duty = (10 * (I_set_float/1.0f)+2.5f)/100.0f*20000;
 		__HAL_TIM_SET_COMPARE(&htim5,TIM_CHANNEL_3,servo_duty);
+#endif
 		
 		
 		power_grocess2();
@@ -322,7 +350,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 60;
   RCC_OscInitStruct.PLL.PLLP = 2;
-  RCC_OscInitStruct.PLL.PLLQ = 5;
+  RCC_OscInitStruct.PLL.PLLQ = 20; /* USB 48 MHz; SPI3 also uses PLL1Q. */
   RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
@@ -354,7 +382,7 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 void power_grocess2()
 {
-		uint8_t temp;
+		uint8_t temp = 0;
 		char text[30];
 		if(key!=0)
 		{
@@ -418,7 +446,7 @@ void power_grocess2()
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0,GPIO_PIN_RESET);//LM5116使能引脚
 		}
 		
-		if(key ==41)
+		if(POWER_OUTPUT_ENABLED && key ==41)
 		{
 			key = 0;
 			if(LM5116_EN==0)
