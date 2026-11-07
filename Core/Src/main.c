@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "comm_uart7.h"
+#include "dac_safe.h"
 #include "usb_log.h"
 /* Keep disabled until separately validated with the user. */
 #define CAR_ACTUATORS_ENABLED 0
@@ -150,8 +151,8 @@ void LCD_ServiceHook(void)
     static uint32_t last_service;
     uint32_t now = HAL_GetTick();
     if (now != last_service) {
-        last_service = now;
         Comm_UART7_Poll();
+        last_service = HAL_GetTick();
     }
 }
 
@@ -226,33 +227,22 @@ int main(void)
 	 HAL_TIM_Encoder_Start(&htim3,TIM_CHANNEL_1);
 	 HAL_TIM_Encoder_Start(&htim3,TIM_CHANNEL_2);
 	 //记忆电压读取
-	 U_set_int = AT24C_ReadOneByte(0);
-	 uint32_t temp_32;
-	 uint8_t temp_8[4];
-	 HAL_Delay(5);
-	 temp_8[0] = AT24C_ReadOneByte(1);
-	 HAL_Delay(5);
-   temp_8[1] = AT24C_ReadOneByte(2);
-	 HAL_Delay(5);
-	 temp_8[2] = AT24C_ReadOneByte(3);
-	 HAL_Delay(5);
-	 temp_8[3] = AT24C_ReadOneByte(4);
-	 temp_32 = ((temp_8[0])|(temp_8[1]<<8)|(temp_8[2]<<16)|(temp_8[3]<<24));
-	 U_set_float = IntBitTofloat(temp_32);
-	 HAL_Delay(5);
-	 //记忆电流读取
-	 I_set_int = AT24C_ReadOneByte(5);
-	 HAL_Delay(5);
-	 temp_8[0] = AT24C_ReadOneByte(6);
-	 HAL_Delay(5);
-   temp_8[1] = AT24C_ReadOneByte(7);
-	 HAL_Delay(5);
-	 temp_8[2] = AT24C_ReadOneByte(8);
-	 HAL_Delay(5);
-	 temp_8[3] = AT24C_ReadOneByte(9);
-	 temp_32 = ((temp_8[0])|(temp_8[1]<<8)|(temp_8[2]<<16)|(temp_8[3]<<24));
-	 I_set_float = IntBitTofloat(temp_32);
-	 
+    /* Commit persisted settings only after a complete, valid read. */
+    uint8_t saved[10];
+    if (AT24C_ReadBytes(0, saved, sizeof(saved)) == HAL_OK) {
+        float saved_u, saved_i;
+        memcpy(&saved_u, &saved[1], sizeof(saved_u));
+        memcpy(&saved_i, &saved[6], sizeof(saved_i));
+        if (isfinite(saved_u) && isfinite(saved_i) &&
+            saved_u >= 0.0f && saved_u < 1.0f &&
+            saved_i >= 0.0f && saved_i < 1.0f &&
+            saved[0] + saved_u <= 30.0f && saved[5] + saved_i <= I_MAX) {
+            U_set_int = saved[0]; U_set_float = saved_u;
+            I_set_int = saved[5]; I_set_float = saved_i;
+            USB_Log_Event("EEPROM_BOOT", "settings loaded");
+        } else USB_Log_Event("EEPROM_BOOT", "invalid data; defaults retained");
+    } else USB_Log_Event("EEPROM_BOOT", "read failed; defaults retained");
+
 	 U_set = U_set_int+U_set_float;
 	 I_set = I_set_int+I_set_float;
 	 U_set_count = U_set_int;
@@ -261,12 +251,12 @@ int main(void)
 	 HAL_DAC_Start(&hdac1,DAC_CHANNEL_1);//开启DAC
 	 DAC_set = 1.5f;
 	 DAC_set = U_set/(40.00f/4.300f+1);
-	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 	 
 	 DAC_set_I =1.5f;
 	 DAC_set_I = I_set*0.005f*50.f+0.6175f;
 	 HAL_DAC_Start(&hdac1,DAC_CHANNEL_2);//开启DAC
-	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_set_I/3.30f*4096);
+	 HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set_I));
 	 
 	 //Car
 #if CAR_ACTUATORS_ENABLED
@@ -312,7 +302,17 @@ int main(void)
 #endif
 		
 		
-		power_grocess2();
+        power_grocess2();
+        USB_Log_Event("UI_PROGRESS", "cycle complete PWM_OFF");
+        static uint32_t seen_errors;
+        static HAL_StatusTypeDef seen_status = HAL_OK;
+        if (seen_errors != AT24C_ErrorCount() || seen_status != AT24C_LastStatus()) {
+            char state[48];
+            seen_errors = AT24C_ErrorCount(); seen_status = AT24C_LastStatus();
+            snprintf(state, sizeof(state), "status=%u failures=%lu", (unsigned)seen_status,
+                     (unsigned long)seen_errors);
+            USB_Log_Event("EEPROM_STATE", state);
+        }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -456,34 +456,34 @@ void power_grocess2()
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0,GPIO_PIN_SET);//LM5116使能引脚
 				//软启动
 				DAC_set = U_set/9/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(50);
 				DAC_set = U_set/9/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(50);
 				DAC_set = U_set/8/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(50);
 				DAC_set = U_set/7/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(50);
 				DAC_set = U_set/6/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(50);
 				DAC_set = U_set/5/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(50);
 				DAC_set = U_set/4/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(50);
 				DAC_set = U_set/3/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(100);
 				DAC_set = U_set/2/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 				HAL_Delay(100);
 				DAC_set = U_set/10.3023255;
-				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30f*4096);
+				HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 			}else if (LM5116_EN==1)
 			{
 				tone(1000,20);
@@ -568,7 +568,7 @@ void power_grocess2()
 					U_set_int = U_set_count;
 					//写入电压整数
 					AT24C_WriteOneByte(0,U_set_int);
-					HAL_Delay(3);
+					HAL_Delay(5);
 				}else if(U_set_mode==1)//电压小数调整
 				{
 					static uint16_t last_U_set_count;
@@ -613,11 +613,11 @@ void power_grocess2()
 					temp_8[2]=temp_32>>16;
 					temp_8[3]=temp_32>>24;
 					AT24C_WriteOneByte(1,temp_8[0]);
-					HAL_Delay(3);
+					HAL_Delay(5);
 					AT24C_WriteOneByte(2,temp_8[1]);
-					HAL_Delay(3);
+					HAL_Delay(5);
 					AT24C_WriteOneByte(3,temp_8[2]);
-					HAL_Delay(3);
+					HAL_Delay(5);
 					AT24C_WriteOneByte(4,temp_8[3]);
 				}
 			}break;
@@ -657,7 +657,7 @@ void power_grocess2()
 					}
 					I_set_int = I_set_count;
 					AT24C_WriteOneByte(5,I_set_int);
-					HAL_Delay(3);
+					HAL_Delay(5);
 				}else if(I_set_mode==1)//电流小数调整
 				{
 					I_set_count=__HAL_TIM_GET_COUNTER(&htim3);
@@ -696,11 +696,11 @@ void power_grocess2()
 					temp_8[2]=temp_32>>16;
 					temp_8[3]=temp_32>>24;
 					AT24C_WriteOneByte(6,temp_8[0]);
-					HAL_Delay(3);
+					HAL_Delay(5);
 					AT24C_WriteOneByte(7,temp_8[1]);
-					HAL_Delay(3);
+					HAL_Delay(5);
 					AT24C_WriteOneByte(8,temp_8[2]);
-					HAL_Delay(3);
+					HAL_Delay(5);
 					AT24C_WriteOneByte(9,temp_8[3]);
 				}
 			}break;
@@ -785,17 +785,19 @@ void power_grocess2()
 			}
 
 		//输出电压限幅
+		if (!isfinite(DAC_set) || DAC_set < 0.0f) DAC_set = 0.0f;
 		if(DAC_set>3.30000f)
 		{
 			DAC_set=3.30000f;
 		}
-		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_set/3.30000f*4096);
+		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_1,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set));
 		//输出电流限幅
+		if (!isfinite(DAC_set_I) || DAC_set_I < 0.0f) DAC_set_I = 0.0f;
 		if(DAC_set_I>3.30000f)
 		{
 			DAC_set_I=3.30000f;
 		}
-		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_set_I/3.30f*4096);
+		HAL_DAC_SetValue(&hdac1,DAC_CHANNEL_2,DAC_ALIGN_12B_R,DAC_CodeFromVolts(DAC_set_I));
 		uint32_t dac_temp;
 		dac_temp = HAL_DAC_GetValue(&hdac1,DAC_CHANNEL_1);
 		sprintf(text,"DAC_U:%.2fV",dac_temp*3.3f/4096);

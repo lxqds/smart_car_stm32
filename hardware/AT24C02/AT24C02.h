@@ -27,7 +27,13 @@ typedef uint16_t u16;
 #define CVCC_ADDR            16
 
 void AT24C02_I2C_Init(void);
-void AT24C_WriteOneByte(u16 Addr,u8 Data);
+/* Blocking HAL calls have a finite timeout. Faults throttle retries for 1s. */
+#define AT24C_TIMEOUT_MS 10U
+#define AT24C_RETRY_MS 1000U
+HAL_StatusTypeDef AT24C_ReadBytes(u16 Addr, u8 *Data, u16 Size);
+HAL_StatusTypeDef AT24C_WriteOneByte(u16 Addr,u8 Data);
+HAL_StatusTypeDef AT24C_LastStatus(void);
+uint32_t AT24C_ErrorCount(void);
 u8 AT24C_ReadOneByte(u16 Addr);
 uint32_t MCM_floatToIntBit( float x );
 float IntBitTofloat( uint32_t x );

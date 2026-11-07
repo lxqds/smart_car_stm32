@@ -16,3 +16,4 @@ MDK-ARM/smart_car_stm32/
 __pycache__/
 *.pyc
 .env
+/tests/.build/

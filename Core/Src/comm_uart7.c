@@ -10,9 +10,17 @@
 /* Single IRQ producer / main-loop consumer. Keep arrival timestamps so a
  * parser timeout does not depend on time spent sending a previous reply. */
 #define RX_SIZE 1024U
+#define TX_SIZE 2048U
+#define TX_RESERVE 32U
+#define POLL_BYTES 64U
+#define POLL_FRAMES 4U
+#define POLL_MS 1U
 static volatile struct { uint32_t tick; uint8_t byte; } rx_ring[RX_SIZE];
 static volatile uint32_t rx_head, rx_tail, rx_loss;
 static volatile uint32_t rx_ore, rx_fe, rx_ne, rx_pe, rx_full;
+/* Main producer / IRQ consumer. Publish complete replies, never fragments. */
+static volatile uint8_t tx_ring[TX_SIZE];
+static volatile uint32_t tx_head, tx_tail, tx_completed;
 
 void UART7_IRQHandler(void)
 {
@@ -37,23 +45,49 @@ void UART7_IRQHandler(void)
             rx_head = next;
         }
     }
+    if ((UART7->CR1 & USART_CR1_TXEIE_TXFNFIE) &&
+        (UART7->ISR & USART_ISR_TXE_TXFNF)) {
+        if (tx_tail != tx_head) {
+            UART7->TDR = tx_ring[tx_tail];
+            __DMB();
+            tx_tail = (tx_tail + 1U) & (TX_SIZE - 1U);
+        }
+        if (tx_tail == tx_head) {
+            UART7->CR1 &= ~USART_CR1_TXEIE_TXFNFIE;
+            UART7->CR1 |= USART_CR1_TCIE;
+        }
+    }
+    if ((UART7->CR1 & USART_CR1_TCIE) && (UART7->ISR & USART_ISR_TC)) {
+        UART7->ICR = USART_ICR_TCCF;
+        UART7->CR1 &= ~USART_CR1_TCIE;
+        ++tx_completed;
+    }
+}
+
+static uint32_t tx_free(void)
+{
+    return (tx_tail - tx_head - 1U) & (TX_SIZE - 1U);
 }
 
 static int send_text(const char *text)
 {
+    size_t count = strlen(text);
+    if (count >= TX_RESERVE || count > tx_free()) return 0;
+    uint32_t head = tx_head;
+    for (size_t i = 0; i < count; ++i) {
+        tx_ring[head] = (uint8_t)text[i];
+        head = (head + 1U) & (TX_SIZE - 1U);
+    }
+    uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    __DMB();
+    tx_head = head;
+    UART7->CR1 &= ~USART_CR1_TCIE;
+    UART7->ICR = USART_ICR_TCCF;
+    UART7->CR1 |= USART_CR1_TXEIE_TXFNFIE;
+    __set_PRIMASK(mask);
+    /* Accepted into TX queue; hardware completion is logged separately. */
     USB_Log_Event("TX_REQUEST", text);
-    while (*text) {
-        uint32_t start = HAL_GetTick();
-        while (!(UART7->ISR & USART_ISR_TXE_TXFNF)) {
-            if ((uint32_t)(HAL_GetTick() - start) > 20U) { USB_Log_Event("TX_TIMEOUT", "UART7" ); return 0; }
-        }
-        UART7->TDR = (uint8_t)*text++;
-    }
-    uint32_t done = HAL_GetTick();
-    while (!(UART7->ISR & USART_ISR_TC)) {
-        if ((uint32_t)(HAL_GetTick() - done) > 20U) { USB_Log_Event("TX_TIMEOUT", "UART7 TC"); return 0; }
-    }
-    USB_Log_Event("TX_COMPLETE", "UART7 hardware TC");
     return 1;
 }
 
@@ -103,7 +137,7 @@ void Comm_UART7_Init(void)
                   USART_CR1_RXNEIE_RXFNEIE | USART_CR1_PEIE;
 
     USB_Log_Init();
-    USB_Log_Event("UART_MODE", "IRQ_RX_RING1024 TEST1 PWM_OFF");
+    USB_Log_Event("UART_MODE", "IRQ_RX1024_TX2048 BOUNDED PWM_OFF");
 }
 
 void Comm_UART7_Poll(void)
@@ -111,9 +145,15 @@ void Comm_UART7_Poll(void)
     static char line[32];
     static unsigned used;
     static int discard;
-    static uint32_t last, stats_tick;
-    /* Bounded service; return to the existing UI rather than owning main. */
-    for (unsigned budget = 0; budget < RX_SIZE; ++budget) {
+    static uint32_t last, stats_tick, seen_completed;
+    uint32_t started = HAL_GetTick();
+    unsigned frames = 0;
+    if (seen_completed != tx_completed) {
+        seen_completed = tx_completed;
+        USB_Log_Event("TX_COMPLETE", "UART7 hardware TC (queue batch)");
+    }
+    /* No UART waits. Bound work even if RX keeps arriving or TX is stalled. */
+    for (unsigned budget = 0; budget < POLL_BYTES; ++budget) {
         USB_Log_Poll();
         uint32_t now = HAL_GetTick();
         if ((uint32_t)(now - stats_tick) >= 1000U) {
@@ -143,6 +183,8 @@ void Comm_UART7_Poll(void)
             }
             return;
         }
+        if (frames >= POLL_FRAMES || tx_free() < TX_RESERVE ||
+            (uint32_t)(HAL_GetTick() - started) >= POLL_MS) return;
         __DMB();
         char c = (char)rx_ring[rx_tail].byte;
         uint32_t arrived = rx_ring[rx_tail].tick;
@@ -154,6 +196,7 @@ void Comm_UART7_Poll(void)
         }
         last = arrived;
         if (c == '\n') {
+            ++frames;
             line[used] = 0;
             USB_Log_Event(discard ? "RX_DISCARD" : "RX_LINE", line);
             if (!discard) {
